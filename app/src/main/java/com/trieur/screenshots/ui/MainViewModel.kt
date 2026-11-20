@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -91,7 +92,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Propositions de nettoyage, recalculées à chaque changement de l'index. */
     val suggestions: StateFlow<List<Suggestion>> = dao.filtered(null, null, null)
-        .map { cleanupSuggestions(it, System.currentTimeMillis()) }
+        // Pendant un scan, chaque image ajoutée relancerait le calcul (doublons : O(n²)) :
+        // on attend une demi-seconde de calme, et un calcul en cours est abandonné pour le suivant.
+        .debounce(500)
+        .mapLatest { cleanupSuggestions(it, System.currentTimeMillis()) }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
