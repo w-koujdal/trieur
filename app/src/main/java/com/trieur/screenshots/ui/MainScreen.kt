@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trieur.screenshots.data.Screenshot
@@ -73,6 +74,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val cleanup by vm.cleanup.collectAsStateWithLifecycle()
     val filtering = query.isNotBlank() || category != null || app != null || source != null || cleanup != null
     var hasAccess by remember { mutableStateOf(hasMediaAccess(context)) }
+    var accessDenied by remember { mutableStateOf(false) }
     val detail by vm.detail.collectAsStateWithLifecycle()
     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
     var showCleanup by remember { mutableStateOf(false) }
@@ -81,6 +83,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
         hasAccess = granted.values.any { it }
+        accessDenied = !hasAccess
         if (hasAccess) vm.startScan()
     }
 
@@ -111,6 +114,26 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     // Scan incrémental à l'ouverture si l'accès est déjà accordé.
     LaunchedEffect(Unit) { if (hasAccess) vm.startScan() }
     BackHandler(enabled = selecting) { vm.clearSelection() }
+
+    // Retour des réglages d'Android : l'accès a pu être donné (ou retiré) entre-temps.
+    LifecycleResumeEffect(Unit) {
+        val now = hasMediaAccess(context)
+        if (now != hasAccess) {
+            hasAccess = now
+            if (now) vm.startScan()
+        }
+        onPauseOrDispose { }
+    }
+
+    if (!hasAccess) {
+        OnboardingScreen(
+            enabledSources = enabledSources,
+            onToggleSource = { s, on -> vm.setSourceEnabled(s, on) },
+            denied = accessDenied,
+            onStart = { permissionLauncher.launch(mediaPermissions) },
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -206,11 +229,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             StatusLine(scan = scan, indexed = indexed, resultCount = results.size, filtering = filtering)
 
             when {
-                !hasAccess -> CenteredMessage(
-                    "L'appli a besoin d'accéder à tes images pour lire tes captures.",
-                    action = "Autoriser l'accès",
-                    onAction = ::scanOrAsk,
-                )
+
                 results.isEmpty() && filtering -> CenteredMessage(
                     if (query.isNotBlank()) "Aucune capture ne contient « $query » avec ces filtres."
                     else "Aucune capture avec ces filtres."

@@ -57,6 +57,10 @@ class ScreenshotScanner(
     }
 
     private suspend fun scanLocked(onProgress: (done: Int, total: Int) -> Unit): Int = withContext(Dispatchers.IO) {
+        // Sans permission, le MediaStore renvoie une liste vide : on croirait toutes les images
+        // supprimées et on viderait l'index. On ne touche à rien tant que l'accès n'est pas rendu.
+        if (!hasMediaAccess(context)) return@withContext 0
+
         val sources = enabledSources()
         val onDevice = queryImages().filter { it.source in sources }
         val indexed = dao.indexedIds().toSet()
