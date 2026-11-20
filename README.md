@@ -69,7 +69,7 @@ app/src/main/java/com/trieur/screenshots/
 ├── data/
 │   ├── Screenshot.kt         entité Room + index plein texte FTS4 (texte et étiquettes)
 │   ├── ScreenshotDao.kt      requêtes (filtres facultatifs), requête FTS sûre
-│   ├── AppDatabase.kt        base v5 et migrations 1→5
+│   ├── AppDatabase.kt        base v6 et migrations 1→6
 │   ├── Classifier.kt         catégorie (règles sur le texte, appli d'origine, étiquettes)
 │   ├── Labels.kt             étiquettes ML Kit → français + catégorie, priorité sujet > décor
 │   ├── Detected.kt           liens, e-mails, numéros FR, codes
@@ -93,6 +93,19 @@ Choix notables :
   50 Mpx décodée en entier ferait ~200 Mo en mémoire. Mesuré : 687 photos en ~7 min, pic ~320 Mo.
 - **Doublon = image proche ET texte proche** ; sans texte, seuil d'image plus strict.
 - **Code natif compressé** dans l'APK : 28,7 → 16,1 Mo.
+
+## Robustesse
+
+Une relecture de code (agent dédié) a trouvé puis fait corriger, chaque correctif vérifié :
+
+- avec l'accès limité « photos choisies » (Android 14+), un scan vidait l'index — il n'efface
+  plus rien sans accès complet ;
+- une image illisible au moment du scan n'est plus enregistrée « sans texte » (et proposée à la
+  corbeille) : elle est relue au scan suivant ;
+- une image retouchée sur place est relue (date de modification, base v6) ;
+- doublons groupés autour de l'image gardée (plus d'enchaînement A≈B≈C) ;
+- PDF très haut plafonné, erreurs mémoire attrapées par fichier ;
+- les deux tâches d'arrière-plan ne s'annulent plus l'une l'autre.
 
 ## Limites connues
 
