@@ -41,7 +41,14 @@ fun FilterBar(
         if (apps.isNotEmpty()) {
             item(key = "apps") { AppFilterChip(apps, selectedApp, onAppSelected) }
         }
-        items(categories, key = { it.first.name }) { (category, count) ->
+        // La catégorie active reste affichée (à 0) même si l'appli choisie n'en a aucune,
+        // sinon on ne pourrait plus la désélectionner.
+        val shown = if (selectedCategory == null || categories.any { it.first == selectedCategory }) {
+            categories
+        } else {
+            (categories + (selectedCategory to 0)).sortedBy { it.first.ordinal }
+        }
+        items(shown, key = { it.first.name }) { (category, count) ->
             FilterChip(
                 selected = category == selectedCategory,
                 onClick = { onCategoryClick(category) },

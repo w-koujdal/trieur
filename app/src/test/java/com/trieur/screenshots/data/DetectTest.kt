@@ -16,6 +16,15 @@ class DetectTest {
     }
 
     @Test
+    fun aiDomain_withPathAndFragment() {
+        // Cas vu sur le téléphone : barre d'adresse de Chrome capturée.
+        assertEquals(
+            listOf("https://claude.ai/new#settir"),
+            detect("A claude.ai/new#settir +").filterIsInstance<Detected.Link>().map { it.url },
+        )
+    }
+
+    @Test
     fun email_isNotAlsoALink() {
         val found = detect("Écris à jean.dupont@gmail.com pour réserver")
         assertEquals(listOf(Detected.Email("jean.dupont@gmail.com")), found)

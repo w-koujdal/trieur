@@ -50,7 +50,7 @@ private val EMAIL = Regex("""[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*
 
 private val URL = Regex(
     """(?:https?://|www\.)[^\s<>"]+|""" +
-        """(?<![\w@.-])[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|fr|net|org|io|be|ch|app|dev|co|gg|tv|me|info|eu|ly|shop)(?:/[^\s<>"]*)?(?![\w-])""",
+        """(?<![\w@.-])[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|fr|net|org|io|ai|be|ch|ca|de|es|it|uk|us|app|dev|co|gg|tv|me|info|eu|ly|shop|xyz|tech)(?:/[^\s<>"]*)?(?![\w-])""",
     RegexOption.IGNORE_CASE,
 )
 

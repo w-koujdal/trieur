@@ -39,8 +39,14 @@ interface ScreenshotDao {
     @Query("SELECT COUNT(*) FROM screenshots")
     fun count(): Flow<Int>
 
-    @Query("SELECT category, COUNT(*) AS count FROM screenshots GROUP BY category")
-    fun categoryCounts(): Flow<List<CategoryCount>>
+    /** Compteurs par catégorie, limités à l'appli [app] si elle est choisie. */
+    @Query(
+        """
+        SELECT category, COUNT(*) AS count FROM screenshots
+        WHERE (:app IS NULL OR sourceApp = :app) GROUP BY category
+        """
+    )
+    fun categoryCounts(app: String?): Flow<List<CategoryCount>>
 
     @Query(
         """

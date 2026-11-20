@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -81,11 +82,28 @@ fun DetailSheet(
         Column(
             Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
+                .padding(bottom = 16.dp)
         ) {
             Text(shot.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
+
+            // Actions en haut : toujours visibles, même panneau à moitié ouvert et texte long.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                Button(onClick = { openImage(context, shot.uri) }, modifier = Modifier.weight(1f)) { Text("Ouvrir") }
+                OutlinedButton(onClick = onShare) {
+                    Icon(Icons.Filled.Share, contentDescription = "Partager")
+                }
+                if (canDelete) {
+                    OutlinedButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Mettre à la corbeille")
+                    }
+                }
+            }
 
             if (detected.isNotEmpty()) {
                 FlowRow(
@@ -107,25 +125,13 @@ fun DetailSheet(
             Box(
                 Modifier
                     .weight(1f, fill = false)
-                    .padding(vertical = 12.dp)
+                    .padding(top = 12.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 if (shot.text.isBlank()) {
                     Text("Aucun texte reconnu sur cette capture.", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     SelectionContainer { Text(annotated, style = MaterialTheme.typography.bodyMedium) }
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { openImage(context, shot.uri) }, modifier = Modifier.weight(1f)) { Text("Ouvrir") }
-                OutlinedButton(onClick = onShare) {
-                    Icon(Icons.Filled.Share, contentDescription = "Partager")
-                }
-                if (canDelete) {
-                    OutlinedButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Mettre à la corbeille")
-                    }
                 }
             }
         }

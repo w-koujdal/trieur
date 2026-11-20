@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,7 +105,15 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         topBar = {
             if (selecting) {
                 TopAppBar(
-                    title = { Text("${selection.size} sélectionnée${if (selection.size > 1) "s" else ""}") },
+                    // Juste le nombre : tient sur une ligne même en grande police (lu « 6 sélectionnées »).
+                    title = {
+                        val label = "${selection.size} sélectionnée${if (selection.size > 1) "s" else ""}"
+                        Text(
+                            "${selection.size}",
+                            maxLines = 1,
+                            modifier = Modifier.semantics { contentDescription = label },
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = vm::clearSelection) {
                             Icon(Icons.Filled.Close, contentDescription = "Annuler la sélection")
@@ -147,7 +157,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Rechercher un mot dans tes captures") },
+                placeholder = { Text("Rechercher un mot", maxLines = 1) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
@@ -191,6 +201,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     selection = selection,
                     onClick = { if (selecting) vm.toggleSelection(it.mediaId) else detail = it },
                     onLongClick = { vm.toggleSelection(it.mediaId) },
+                    scrollResetKey = Triple(query, category, app),
                 )
             }
         }

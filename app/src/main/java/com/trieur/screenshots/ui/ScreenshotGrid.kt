@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,12 +45,17 @@ fun ScreenshotGrid(
     selection: Set<Long>,
     onClick: (Screenshot) -> Unit,
     onLongClick: (Screenshot) -> Unit,
+    /** Quand cette valeur change (recherche, filtres), la grille revient en haut. */
+    scrollResetKey: Any? = null,
 ) {
+    val state = rememberLazyGridState()
+    LaunchedEffect(scrollResetKey) { state.scrollToItem(0) }
     val today = remember { LocalDate.now() }
     val sections = remember(items, today) { items.groupBy { dateBucket(it.dateTaken, today) } }
     val selecting = selection.isNotEmpty()
 
     LazyVerticalGrid(
+        state = state,
         columns = GridCells.Adaptive(minSize = 110.dp),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

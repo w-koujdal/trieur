@@ -56,7 +56,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** Nombre de captures par catégorie, dans l'ordre d'affichage, sans les catégories vides. */
-    val categoryCounts: StateFlow<List<Pair<Category, Int>>> = dao.categoryCounts()
+    val categoryCounts: StateFlow<List<Pair<Category, Int>>> = _app
+        .flatMapLatest { dao.categoryCounts(it) }
         .map { rows ->
             val byName = rows.associate { it.category to it.count }
             Category.entries.mapNotNull { c -> byName[c.name]?.let { c to it } }
