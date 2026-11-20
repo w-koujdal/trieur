@@ -61,9 +61,16 @@ class ScreenshotScanner(
                     text = text,
                     sourceApp = sourceApp,
                     category = Classifier.classify(text, sourceApp).name,
+                    dhash = ImageHash.compute(context, item.uri),
                 )
             )
             onProgress(i + 1, todo.size)
+        }
+
+        // Rattrapage des empreintes (captures indexées avant leur introduction, ou échec précédent).
+        // Rapide (image réduite) : quelques ms par capture, sans OCR.
+        dao.missingHashes().forEach { h ->
+            ImageHash.compute(context, Uri.parse(h.uri))?.let { dao.setHash(h.mediaId, it) }
         }
         todo.size
     }

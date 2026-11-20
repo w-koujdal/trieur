@@ -15,7 +15,16 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -55,6 +64,8 @@ fun DetailSheet(
     query: String,
     onShare: () -> Unit,
     onDelete: () -> Unit,
+    /** null = revenir au classement automatique. */
+    onCategoryChange: (Category?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -75,7 +86,7 @@ fun DetailSheet(
     val detected = remember(shot.text) { detect(shot.text) }
     val subtitle = remember(shot) {
         val date = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(shot.dateTaken))
-        listOfNotNull(shot.sourceApp, Category.fromName(shot.category).label, date).joinToString(" · ")
+        listOfNotNull(shot.sourceApp, date).joinToString(" · ")
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -88,6 +99,7 @@ fun DetailSheet(
         ) {
             Text(shot.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            CategoryPicker(shot, onCategoryChange, Modifier.padding(top = 8.dp))
 
             // Actions en haut : toujours visibles, même panneau à moitié ouvert et texte long.
             Row(
@@ -133,6 +145,39 @@ fun DetailSheet(
                 } else {
                     SelectionContainer { Text(annotated, style = MaterialTheme.typography.bodyMedium) }
                 }
+            }
+        }
+    }
+}
+
+/** Puce de catégorie : un menu permet d'en choisir une autre ou de revenir à l'automatique. */
+@Composable
+private fun CategoryPicker(shot: Screenshot, onChange: (Category?) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    val current = Category.fromName(shot.category)
+    Box(modifier) {
+        FilterChip(
+            selected = shot.categoryLocked,
+            onClick = { open = true },
+            label = { Text(if (shot.categoryLocked) "${current.label} (choisie)" else current.label) },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = "Changer de catégorie") },
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (shot.categoryLocked) {
+                DropdownMenuItem(
+                    text = { Text("Automatique") },
+                    onClick = { onChange(null); open = false },
+                )
+                HorizontalDivider()
+            }
+            Category.entries.forEach { c ->
+                DropdownMenuItem(
+                    text = { Text(c.label) },
+                    leadingIcon = if (c == current) {
+                        { Icon(Icons.Filled.Check, contentDescription = null) }
+                    } else null,
+                    onClick = { onChange(c); open = false },
+                )
             }
         }
     }

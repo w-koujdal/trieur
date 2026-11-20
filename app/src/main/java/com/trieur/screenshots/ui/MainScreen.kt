@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
@@ -62,9 +65,12 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val appCounts by vm.appCounts.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val selecting = selection.isNotEmpty()
-    val filtering = query.isNotBlank() || category != null || app != null
+    val cleanup by vm.cleanup.collectAsStateWithLifecycle()
+    val filtering = query.isNotBlank() || category != null || app != null || cleanup != null
     var hasAccess by remember { mutableStateOf(hasMediaAccess(context)) }
-    var detail by remember { mutableStateOf<Screenshot?>(null) }
+    val detail by vm.detail.collectAsStateWithLifecycle()
+    val suggestions by vm.suggestions.collectAsStateWithLifecycle()
+    var showCleanup by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -84,7 +90,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             vm.removeFromIndex(pendingDelete)
-            if (detail?.mediaId in pendingDelete) detail = null
+            if (detail?.mediaId in pendingDelete) vm.openDetail(null)
         }
         pendingDelete = emptyList()
     }
@@ -138,6 +144,11 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 TopAppBar(
                     title = { Text("Trieur de captures") },
                     actions = {
+                        IconButton(onClick = { showCleanup = true }) {
+                            BadgedBox(badge = { if (suggestions.isNotEmpty()) Badge { Text("${suggestions.size}") } }) {
+                                Icon(Icons.Filled.Build, contentDescription = "Nettoyage")
+                            }
+                        }
                         IconButton(onClick = ::scanOrAsk, enabled = !scan.running) {
                             Icon(Icons.Filled.Refresh, contentDescription = "Rescanner")
                         }
@@ -176,6 +187,8 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 apps = appCounts,
                 selectedApp = app,
                 onAppSelected = vm::selectApp,
+                cleanupLabel = cleanup?.title,
+                onClearCleanup = vm::clearCleanup,
                 modifier = Modifier.padding(bottom = 4.dp),
             )
 
@@ -199,9 +212,9 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 else -> ScreenshotGrid(
                     items = results,
                     selection = selection,
-                    onClick = { if (selecting) vm.toggleSelection(it.mediaId) else detail = it },
+                    onClick = { if (selecting) vm.toggleSelection(it.mediaId) else vm.openDetail(it.mediaId) },
                     onLongClick = { vm.toggleSelection(it.mediaId) },
-                    scrollResetKey = Triple(query, category, app),
+                    scrollResetKey = listOf(query, category, app, cleanup?.key),
                 )
             }
         }
@@ -213,7 +226,16 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             query = query,
             onShare = { shareImages(context, listOf(shot.uri)) },
             onDelete = { requestDelete(listOf(shot)) },
-            onDismiss = { detail = null },
+            onCategoryChange = { vm.setCategory(shot, it) },
+            onDismiss = { vm.openDetail(null) },
+        )
+    }
+
+    if (showCleanup) {
+        CleanupSheet(
+            suggestions = suggestions,
+            onPick = { vm.applyCleanup(it); showCleanup = false },
+            onDismiss = { showCleanup = false },
         )
     }
 }

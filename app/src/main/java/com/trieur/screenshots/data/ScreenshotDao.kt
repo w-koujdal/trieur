@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 data class CategoryCount(val category: String, val count: Int)
 data class AppCount(val sourceApp: String, val count: Int)
 data class ClassificationInput(val mediaId: Long, val displayName: String, val text: String)
+data class HashInput(val mediaId: Long, val uri: String)
 
 @Dao
 interface ScreenshotDao {
@@ -62,8 +63,28 @@ interface ScreenshotDao {
     @Query("SELECT mediaId, displayName, text FROM screenshots")
     suspend fun classificationInputs(): List<ClassificationInput>
 
-    @Query("UPDATE screenshots SET sourceApp = :sourceApp, category = :category WHERE mediaId = :mediaId")
+    /** Reclassement automatique : ne touche pas à la catégorie si elle a été choisie à la main. */
+    @Query(
+        """
+        UPDATE screenshots SET sourceApp = :sourceApp,
+          category = CASE WHEN categoryLocked THEN category ELSE :category END
+        WHERE mediaId = :mediaId
+        """
+    )
     suspend fun updateClassification(mediaId: Long, sourceApp: String?, category: String)
+
+    /** [locked] = true pour un choix manuel, false pour revenir au classement automatique. */
+    @Query("UPDATE screenshots SET category = :category, categoryLocked = :locked WHERE mediaId = :mediaId")
+    suspend fun setCategory(mediaId: Long, category: String, locked: Boolean)
+
+    @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
+    fun observe(mediaId: Long): Flow<Screenshot?>
+
+    @Query("SELECT mediaId, uri FROM screenshots WHERE dhash IS NULL")
+    suspend fun missingHashes(): List<HashInput>
+
+    @Query("UPDATE screenshots SET dhash = :hash WHERE mediaId = :mediaId")
+    suspend fun setHash(mediaId: Long, hash: Long)
 
     // IGNORE plutôt que REPLACE : REPLACE ne déclencherait pas le trigger de suppression FTS.
     @Insert(onConflict = OnConflictStrategy.IGNORE)

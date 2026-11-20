@@ -18,6 +18,10 @@ data class Screenshot(
     val sourceApp: String? = null,
     /** Nom d'une [Category]. */
     @ColumnInfo(defaultValue = "OTHER") val category: String = Category.OTHER.name,
+    /** true si la catégorie a été choisie à la main : le reclassement automatique n'y touche plus. */
+    @ColumnInfo(defaultValue = "0") val categoryLocked: Boolean = false,
+    /** Empreinte visuelle (dHash 64 bits) pour repérer les doublons ; null tant qu'elle n'est pas calculée. */
+    val dhash: Long? = null,
 )
 
 /**

@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -31,13 +35,29 @@ fun FilterBar(
     apps: List<AppCount>,
     selectedApp: String?,
     onAppSelected: (String?) -> Unit,
+    cleanupLabel: String?,
+    onClearCleanup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Une puce ajoutée en tête (lot de nettoyage) resterait hors de l'écran à gauche : on revient au début.
+    val state = rememberLazyListState()
+    LaunchedEffect(cleanupLabel) { if (cleanupLabel != null) state.scrollToItem(0) }
     LazyRow(
+        state = state,
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (cleanupLabel != null) {
+            item(key = "cleanup") {
+                InputChip(
+                    selected = true,
+                    onClick = onClearCleanup,
+                    label = { Text(cleanupLabel) },
+                    trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Retirer ce lot") },
+                )
+            }
+        }
         if (apps.isNotEmpty()) {
             item(key = "apps") { AppFilterChip(apps, selectedApp, onAppSelected) }
         }
