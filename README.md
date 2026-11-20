@@ -123,11 +123,17 @@ Le Trieur cherche aussi dans ton PC, et ton PC cherche dans ton téléphone, ave
 
 - **Découverte** : message UDP « TRIEUR-DISCOVER 1 » diffusé sur le port 47130, réponse JSON.
 - **Appairage** une fois, avec le code à 6 chiffres affiché par l'autre appareil (usage unique,
-  5 essais par minute au plus) : chaque appareil reçoit un jeton pour interroger l'autre.
-- **Recherche** `GET /api/search?q=…` et **fichier** `GET /api/file?id=…` sur le port 47131, avec
-  `Authorization: Bearer <jeton>`. Résultat : nom, chemin lisible (« PC › Documents › CV.pdf »),
-  extrait du texte.
+  5 essais par minute et par adresse, nouveau code après 10 erreurs) : échange de clés publiques
+  ECDH P-256, d'où chaque appareil tire la même clé secrète, jamais transmise.
+- **Recherche** `GET /api/search` et **fichier** `GET /api/file` sur le port 47131 (protocole 2) :
+  `X-Trieur-Peer: <id>` et paramètres chiffrés dans `X-Trieur-Box` ; réponse en trames
+  AES-256-GCM numérotées (nom du fichier compris, fin authentifiée). Voir `lan/LanCrypto.kt`,
+  identique dans Trieur PC. Résultat : nom, chemin lisible (« PC › Documents › CV.pdf »), extrait.
+- Limite connue : quelqu'un qui contrôlerait le Wi-Fi **pendant l'appairage** et lirait le code
+  pourrait s'interposer. Appairer chez soi, pas sur un Wi-Fi public.
 - Seules les adresses privées (192.168.x, 10.x, 172.16-31.x) sont contactées ou acceptées.
 - Côté téléphone, le serveur ne tourne que si « Visible sur le Wi-Fi » est allumé (notification).
 - La permission Internet sert à ce réseau local ; l'envoi de statistiques de ML Kit est retiré
   du manifeste.
+- Aucune sauvegarde : ni Google Drive, ni transfert vers un nouveau téléphone (`data_extraction_rules.xml`).
+  Pas de journaux dans la version publiée.
