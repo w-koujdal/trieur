@@ -10,7 +10,18 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import com.trieur.screenshots.data.findHighlights
+import com.trieur.screenshots.data.searchTokens
+import java.text.DateFormat
+import java.util.Date
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,6 +89,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val indexed by vm.indexedCount.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
     var hasAccess by remember { mutableStateOf(hasMediaAccess(context)) }
+    var selected by remember { mutableStateOf<Screenshot?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -142,8 +154,68 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     action = "Scanner",
                     onAction = ::scanOrAsk,
                 )
-                else -> ScreenshotGrid(results) { openImage(context, it) }
+                else -> ScreenshotGrid(
+                    items = results,
+                    onClick = { openImage(context, it) },
+                    onLongClick = { selected = it },
+                )
             }
+        }
+    }
+
+    selected?.let { shot ->
+        OcrTextSheet(
+            shot = shot,
+            query = query,
+            onOpen = { openImage(context, shot) },
+            onDismiss = { selected = null },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OcrTextSheet(shot: Screenshot, query: String, onOpen: () -> Unit, onDismiss: () -> Unit) {
+    val highlightColor = MaterialTheme.colorScheme.tertiaryContainer
+    val onHighlightColor = MaterialTheme.colorScheme.onTertiaryContainer
+    val annotated = remember(shot.text, query, highlightColor) {
+        buildAnnotatedString {
+            append(shot.text)
+            findHighlights(shot.text, searchTokens(query)).forEach { range ->
+                addStyle(
+                    SpanStyle(background = highlightColor, color = onHighlightColor, fontWeight = FontWeight.Bold),
+                    range.first,
+                    range.last + 1,
+                )
+            }
+        }
+    }
+    val date = remember(shot.dateTaken) {
+        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(shot.dateTaken))
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            Text(shot.displayName, style = MaterialTheme.typography.titleMedium)
+            Text(date, style = MaterialTheme.typography.bodySmall)
+            Box(
+                Modifier
+                    .weight(1f, fill = false)
+                    .padding(vertical = 16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                if (shot.text.isBlank()) {
+                    Text("Aucun texte reconnu sur cette capture.", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    SelectionContainer { Text(annotated, style = MaterialTheme.typography.bodyMedium) }
+                }
+            }
+            Button(onClick = onOpen, modifier = Modifier.fillMaxWidth()) { Text("Ouvrir l'image") }
         }
     }
 }
@@ -180,7 +252,11 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, query: S
 }
 
 @Composable
-private fun ScreenshotGrid(items: List<Screenshot>, onClick: (Screenshot) -> Unit) {
+private fun ScreenshotGrid(
+    items: List<Screenshot>,
+    onClick: (Screenshot) -> Unit,
+    onLongClick: (Screenshot) -> Unit,
+) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 110.dp),
         contentPadding = PaddingValues(16.dp),
@@ -197,7 +273,11 @@ private fun ScreenshotGrid(items: List<Screenshot>, onClick: (Screenshot) -> Uni
                     .fillMaxWidth()
                     .aspectRatio(0.5f)
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onClick(shot) },
+                    .combinedClickable(
+                        onClick = { onClick(shot) },
+                        onLongClick = { onLongClick(shot) },
+                        onLongClickLabel = "Voir le texte reconnu",
+                    ),
             )
         }
     }

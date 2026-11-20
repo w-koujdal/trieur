@@ -61,4 +61,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.coil.compose)
+
+    testImplementation(libs.junit)
 }

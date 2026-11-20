@@ -41,7 +41,9 @@ interface ScreenshotDao {
  * tous les mots doivent être présents. Renvoie null si rien d'exploitable.
  */
 fun toFtsQuery(input: String): String? {
-    val tokens = input.split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }
+    val tokens = searchTokens(input)
     if (tokens.isEmpty()) return null
-    return tokens.joinToString(" ") { "$it*" }
+    // Minuscules : l'index ignore déjà la casse, et ça évite que OR / AND / NOT / NEAR
+    // tapés en majuscules soient interprétés comme des opérateurs FTS.
+    return tokens.joinToString(" ") { "${it.lowercase()}*" }
 }
