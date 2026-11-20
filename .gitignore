@@ -10,3 +10,7 @@
 .cxx/
 .kotlin/
 .omc/
+
+# Clé de signature (mots de passe) : jamais dans git
+keystore.properties
+*.jks

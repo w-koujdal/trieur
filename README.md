@@ -41,8 +41,9 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 adb install -r app\build\outputs\apk\release\app-release.apk
 ```
 
-La version release est signée avec la clé de debug pour s'installer directement. Pour la
-distribuer, créer une vraie clé (gratuit) : `keytool -genkeypair …` puis un `signingConfig`.
+La version release est signée avec la clé décrite dans `keystore.properties` (à la racine,
+hors git : `storeFile`, `storePassword`, `keyAlias`, `keyPassword`). Sans ce fichier, elle est
+signée avec la clé de debug. Garder une copie de la clé : sans elle, pas de mise à jour possible.
 
 Android 10 minimum ; APK limité à `arm64-v8a` (tous les téléphones récents). Pour un émulateur
 x86_64, élargir `abiFilters` dans `app/build.gradle.kts`.
