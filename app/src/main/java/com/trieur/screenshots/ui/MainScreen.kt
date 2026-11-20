@@ -75,7 +75,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         if (hasMediaAccess(context)) vm.startScan() else permissionLauncher.launch(mediaPermissions)
     }
 
-    // Suppression : le système affiche sa propre confirmation, on ne touche à l'index que si elle est acceptée.
+    // Corbeille : le système affiche sa propre confirmation, on ne touche à l'index que si elle est acceptée.
     var pendingDelete by remember { mutableStateOf<List<Long>>(emptyList()) }
     val deleteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -116,7 +116,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                         }
                         if (canDelete) {
                             IconButton(onClick = { requestDelete(selectedShots) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Supprimer la sélection")
+                                Icon(Icons.Filled.Delete, contentDescription = "Mettre la sélection à la corbeille")
                             }
                         }
                     },

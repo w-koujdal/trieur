@@ -124,7 +124,7 @@ fun DetailSheet(
                 }
                 if (canDelete) {
                     OutlinedButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Supprimer")
+                        Icon(Icons.Filled.Delete, contentDescription = "Mettre à la corbeille")
                     }
                 }
             }

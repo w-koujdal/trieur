@@ -28,10 +28,14 @@ fun shareImages(context: Context, uris: List<String>) {
     start(context, Intent.createChooser(intent, null), "partager")
 }
 
-/** Demande système de suppression (une seule confirmation pour toutes). Android 11+ uniquement. */
+/**
+ * Demande système de mise à la corbeille (une seule confirmation pour toutes), Android 11+.
+ * Corbeille plutôt que suppression définitive : récupérable pendant 30 jours. Les captures
+ * à la corbeille n'apparaissent plus dans le MediaStore, donc le prochain scan les oublie aussi.
+ */
 fun deleteRequest(context: Context, uris: List<String>): IntentSender? =
     if (Build.VERSION.SDK_INT >= 30 && uris.isNotEmpty()) {
-        MediaStore.createDeleteRequest(context.contentResolver, uris.map(Uri::parse)).intentSender
+        MediaStore.createTrashRequest(context.contentResolver, uris.map(Uri::parse), true).intentSender
     } else {
         null
     }
