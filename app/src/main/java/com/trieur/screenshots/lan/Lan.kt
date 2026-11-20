@@ -14,23 +14,23 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 import java.net.URL
-import java.net.URLDecoder
-import java.net.URLEncoder
 import java.security.SecureRandom
 
 /**
  * Recherche entre appareils sur le même Wi-Fi (Trieur PC, autre téléphone). Protocole commun
  * avec Trieur PC :
  * - découverte : message UDP « TRIEUR-DISCOVER 1 » diffusé sur le port 47130, réponse JSON ;
- * - appairage : POST /api/pair avec le code affiché par l'autre appareil, échange de jetons ;
- * - GET /api/search?q=… et GET /api/file?id=… avec « Authorization: Bearer <jeton> ».
+ * - appairage : POST /api/pair avec le code affiché par l'autre appareil et une clé publique ;
+ *   chacun en tire la même clé secrète (voir [LanCrypto]) ;
+ * - GET /api/search et GET /api/file : paramètres chiffrés (« X-Trieur-Box »), appareil désigné
+ *   par « X-Trieur-Peer », réponse chiffrée. Rien de lisible ne passe sur le Wi-Fi.
  * Seules des adresses du réseau local sont contactées ou acceptées.
  */
 object Lan {
     const val DISCOVERY_PORT = 47130
     const val HTTP_PORT = 47131
     const val DISCOVER_MESSAGE = "TRIEUR-DISCOVER 1"
-    const val VERSION = 1
+    const val VERSION = 2
 
     fun randomHex(bytes: Int): String = ByteArray(bytes).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
 
@@ -52,18 +52,21 @@ data class Peer(
     val id: String,
     var name: String,
     val kind: String,
-    val tokenOut: String,
-    val tokenIn: String,
+    /** Clé secrète partagée (Base64), issue de l'appairage. */
+    val key: String,
     var host: String?,
     var port: Int = Lan.HTTP_PORT,
 ) {
-    fun toJson() = JSONObject().put("id", id).put("name", name).put("kind", kind).put("tokenOut", tokenOut)
-        .put("tokenIn", tokenIn).put("host", host).put("port", port)
+    val keyBytes: ByteArray get() = LanCrypto.decodeKey(key)
+
+    fun toJson() = JSONObject().put("id", id).put("name", name).put("kind", kind).put("key", key)
+        .put("host", host).put("port", port)
 
     companion object {
-        fun fromJson(o: JSONObject) = Peer(
-            o.getString("id"), o.getString("name"), o.optString("kind", "pc"), o.getString("tokenOut"),
-            o.getString("tokenIn"), o.optString("host").ifBlank { null }, o.optInt("port", Lan.HTTP_PORT),
+        /** null pour un appairage de l'ancienne version (sans chiffrement) : à refaire. */
+        fun fromJson(o: JSONObject): Peer? = if (!o.has("key")) null else Peer(
+            o.getString("id"), o.getString("name"), o.optString("kind", "pc"), o.getString("key"),
+            o.optString("host").ifBlank { null }, o.optInt("port", Lan.HTTP_PORT),
         )
     }
 }
@@ -107,7 +110,7 @@ class LanStore(context: Context) {
     var peers: List<Peer>
         get() = runCatching {
             val a = JSONArray(prefs.getString("peers", "[]"))
-            (0 until a.length()).map { Peer.fromJson(a.getJSONObject(it)) }
+            (0 until a.length()).mapNotNull { runCatching { Peer.fromJson(a.getJSONObject(it)) }.getOrNull() }
         }.getOrDefault(emptyList())
         set(v) = prefs.edit().putString("peers", JSONArray(v.map { it.toJson() }).toString()).apply()
 
@@ -165,15 +168,16 @@ class LanClient(private val context: Context, private val store: LanStore) {
     /** Appareil saisi à la main (adresse IP affichée sur le PC) : on lui demande qui il est. */
     fun probe(host: String, port: Int = Lan.HTTP_PORT): Found {
         require(Lan.isPrivateHost(host)) { "Adresse hors du réseau local" }
-        val o = JSONObject(get("http://$host:$port/api/hello", null).decodeToString())
+        val o = JSONObject(get("http://$host:$port/api/hello").decodeToString())
         return Found(o.getString("id"), o.optString("name", host), o.optString("kind", "pc"), host, o.optInt("port", port))
     }
 
     fun pair(target: Found, code: String): Peer {
         require(Lan.isPrivateHost(target.host)) { "Adresse hors du réseau local" }
-        val myTokenForThem = Lan.randomHex(24)
-        val body = JSONObject().put("code", code).put("id", store.deviceId).put("name", store.name).put("kind", "phone").put("token", myTokenForThem)
-        val c = open("http://${target.host}:${target.port}/api/pair", null).apply {
+        val keys = LanCrypto.newKeyPair()
+        val body = JSONObject().put("code", code).put("id", store.deviceId).put("name", store.name).put("kind", "phone")
+            .put("pub", LanCrypto.publicKey(keys)).put("v", Lan.VERSION)
+        val c = open("http://${target.host}:${target.port}/api/pair").apply {
             requestMethod = "POST"
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
@@ -186,7 +190,9 @@ class LanClient(private val context: Context, private val store: LanStore) {
             else -> error("Refusé (${c.responseCode})")
         }
         val o = JSONObject(c.inputStream.use { it.readBytes().decodeToString() })
-        val peer = Peer(o.getString("id"), o.getString("name"), o.optString("kind", target.kind), o.getString("token"), myTokenForThem, target.host, target.port)
+        val theirPub = o.optString("pub").ifBlank { error("Mets à jour Trieur PC (version trop ancienne)") }
+        val key = LanCrypto.encodeKey(LanCrypto.sharedKey(keys, theirPub))
+        val peer = Peer(o.getString("id"), o.getString("name"), o.optString("kind", target.kind), key, target.host, target.port)
         store.upsert(peer)
         return peer
     }
@@ -219,7 +225,8 @@ class LanClient(private val context: Context, private val store: LanStore) {
 
     private fun search(peer: Peer, query: String): List<RemoteHit> {
         val host = peer.host ?: error("adresse inconnue")
-        val o = JSONObject(get("http://$host:${peer.port}/api/search?q=${URLEncoder.encode(query, "UTF-8")}", peer.tokenOut).decodeToString())
+        val c = authed("http://$host:${peer.port}/api/search", peer, JSONObject().put("q", query))
+        val o = JSONObject(c.inputStream.use { LanCrypto.Reader(peer.keyBytes, it).readAll() }.decodeToString())
         o.optJSONObject("device")?.optString("name")?.takeIf { it.isNotBlank() && it != peer.name }?.let { peer.name = it; store.upsert(peer) }
         val a = o.getJSONArray("results")
         return (0 until a.length()).map { i ->
@@ -234,25 +241,44 @@ class LanClient(private val context: Context, private val store: LanStore) {
     /** Télécharge le fichier dans [dir] ; renvoie le fichier écrit. */
     fun download(peer: Peer, hit: RemoteHit, dir: File): File {
         val host = peer.host ?: error("adresse inconnue")
-        val c = open("http://$host:${peer.port}/api/file?id=${URLEncoder.encode(hit.id, "UTF-8")}", peer.tokenOut).apply { readTimeout = 120_000 }
-        if (c.responseCode != 200) error("Refusé (${c.responseCode})")
-        val name = c.getHeaderField("Content-Disposition")?.substringAfter("filename*=UTF-8''", "")
-            ?.let { URLDecoder.decode(it, "UTF-8") }?.ifBlank { null } ?: hit.name
-        dir.mkdirs()
-        val out = File(dir, name.replace(Regex("[\\\\/:*?\"<>|]"), "_"))
-        c.inputStream.use { input -> out.outputStream().use { input.copyTo(it) } }
-        return out
+        val c = authed("http://$host:${peer.port}/api/file", peer, JSONObject().put("id", hit.id), readMs = 120_000)
+        return c.inputStream.use { input ->
+            val reader = LanCrypto.Reader(peer.keyBytes, input)
+            // Première trame : le nom du fichier (chiffré lui aussi).
+            val meta = JSONObject(reader.next()!!.decodeToString())
+            val name = meta.optString("name").ifBlank { hit.name }
+            dir.mkdirs()
+            val out = File(dir, name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trimStart('.').ifBlank { "fichier" })
+            try {
+                out.outputStream().use { reader.copyTo(it) }
+            } catch (e: Exception) {
+                out.delete() // incomplet ou modifié en route : on ne garde rien
+                throw e
+            }
+            out
+        }
     }
 
-    private fun open(url: String, token: String?): HttpURLConnection =
+    private fun open(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 3000
             readTimeout = 8000
-            if (token != null) setRequestProperty("Authorization", "Bearer $token")
         }
 
-    private fun get(url: String, token: String?): ByteArray {
-        val c = open(url, token)
+    /** Requête chiffrée avec la clé de [peer] ; « 401 » si l'autre ne la reconnaît plus. */
+    private fun authed(url: String, peer: Peer, params: JSONObject, readMs: Int = 8000): HttpURLConnection {
+        val c = open(url).apply {
+            readTimeout = readMs
+            setRequestProperty("X-Trieur-Peer", store.deviceId)
+            setRequestProperty("X-Trieur-Box", LanCrypto.sealRequest(peer.keyBytes, params.toString()))
+        }
+        if (c.responseCode == 401) error("401")
+        if (c.responseCode != 200) error("HTTP ${c.responseCode}")
+        return c
+    }
+
+    private fun get(url: String): ByteArray {
+        val c = open(url)
         if (c.responseCode == 401) error("401")
         if (c.responseCode != 200) error("HTTP ${c.responseCode}")
         return c.inputStream.use { it.readBytes() }

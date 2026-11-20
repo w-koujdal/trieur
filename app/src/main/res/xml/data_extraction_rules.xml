@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rien ne quitte le téléphone : ni sauvegarde Google Drive, ni transfert vers un nouveau
+  téléphone (index du texte des captures, clés d'appairage). allowBackup="false" ne couvre pas
+  le transfert d'appareil à appareil depuis Android 12 : il faut ces règles en plus.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

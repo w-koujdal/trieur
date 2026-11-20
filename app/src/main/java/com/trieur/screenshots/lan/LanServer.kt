@@ -12,7 +12,6 @@ import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
-import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -37,7 +36,6 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
-import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
@@ -52,6 +50,8 @@ class LanServer(private val context: Context, private val store: LanStore) {
     private var udp: DatagramSocket? = null
     private val pool = Executors.newFixedThreadPool(4)
     private val fails = ConcurrentHashMap<String, MutableList<Long>>()
+    /** Erreurs de code toutes adresses confondues : au-delà de 10, le code change. */
+    private val allFails = ArrayList<Long>()
     private var lock: WifiManager.MulticastLock? = null
 
     fun start() {
@@ -104,7 +104,8 @@ class LanServer(private val context: Context, private val store: LanStore) {
         val parts = line.split(' ')
         if (parts.size < 2) return null
         val headers = HashMap<String, String>()
-        while (true) {
+        var count = 0
+        while (count++ < 64) { // en-têtes : 64 au plus
             val h = readLine(input) ?: break
             if (h.isEmpty()) break
             val i = h.indexOf(':')
@@ -146,10 +147,13 @@ class LanServer(private val context: Context, private val store: LanStore) {
                 "/api/hello" -> json(out, store.hello())
                 "/api/pair" -> pair(out, req, remote.hostAddress!!)
                 "/api/search", "/api/file" -> {
-                    val token = req.headers["authorization"]?.removePrefix("Bearer ")?.trim()
-                    val peer = store.peers.firstOrNull { it.tokenIn == token } ?: return respond(out, 401, "non appairé")
+                    // L'appareil se nomme ; la preuve, c'est que sa clé ouvre la requête chiffrée.
+                    val peer = store.peers.firstOrNull { it.id == req.headers["x-trieur-peer"] } ?: return respond(out, 401, "non appairé")
+                    val key = peer.keyBytes
+                    val params = runCatching { JSONObject(LanCrypto.openRequest(key, req.headers["x-trieur-box"].orEmpty())) }.getOrNull()
+                        ?: return respond(out, 401, "non appairé")
                     if (peer.host != remote.hostAddress) { peer.host = remote.hostAddress; store.upsert(peer) }
-                    if (req.path == "/api/search") search(out, req.query["q"].orEmpty()) else file(out, req.query["id"]?.toLongOrNull())
+                    if (req.path == "/api/search") search(out, key, params.optString("q")) else file(out, key, params.optString("id").toLongOrNull())
                 }
                 else -> respond(out, 404, "inconnu")
             }
@@ -162,20 +166,27 @@ class LanServer(private val context: Context, private val store: LanStore) {
     private fun pair(out: OutputStream, req: Request, host: String) {
         if (req.method != "POST") return respond(out, 405, "POST")
         val now = System.currentTimeMillis()
-        val list = fails.getOrPut(host) { mutableListOf() }.apply { removeAll { now - it > 60_000 } }
-        if (list.size >= 5) return respond(out, 429, "trop d'essais")
         val body = JSONObject(req.body.decodeToString())
-        if (body.optString("code") != store.pairCode) {
-            list += now
-            return respond(out, 403, "code incorrect")
+        synchronized(allFails) {
+            val list = fails.getOrPut(host) { mutableListOf() }.apply { removeAll { now - it > 60_000 } }
+            if (list.size >= 5) return respond(out, 429, "trop d'essais")
+            if (!LanCrypto.same(body.optString("code"), store.pairCode)) {
+                list += now
+                allFails += now
+                // Essais depuis plusieurs adresses : le code change, il faut relire le nouveau.
+                if (allFails.size >= 10) { allFails.clear(); store.pairCode = Lan.newPairCode() }
+                return respond(out, 403, "code incorrect")
+            }
         }
-        val tokenForThem = Lan.randomHex(24)
-        store.upsert(Peer(body.getString("id"), body.optString("name", "PC"), body.optString("kind", "pc"), body.getString("token"), tokenForThem, host))
+        val theirPub = body.optString("pub").ifBlank { return respond(out, 426, "mettre à jour Trieur PC") }
+        val keys = LanCrypto.newKeyPair()
+        val key = LanCrypto.encodeKey(LanCrypto.sharedKey(keys, theirPub))
+        store.upsert(Peer(body.getString("id").take(64), body.optString("name", "PC").take(60), body.optString("kind", "pc").take(10), key, host))
         store.pairCode = Lan.newPairCode() // un code ne sert qu'une fois
-        json(out, JSONObject().put("id", store.deviceId).put("name", store.name).put("kind", "phone").put("token", tokenForThem))
+        json(out, JSONObject().put("id", store.deviceId).put("name", store.name).put("kind", "phone").put("pub", LanCrypto.publicKey(keys)).put("v", Lan.VERSION))
     }
 
-    private fun search(out: OutputStream, q: String) {
+    private fun search(out: OutputStream, key: ByteArray, q: String) {
         val fts = toFtsQuery(q)
         val shots = if (fts == null) emptyList() else runBlocking { app.database.screenshotDao().searchNow(fts, 60) }
         val tokens = searchTokens(q).map(::foldText)
@@ -188,23 +199,21 @@ class LanServer(private val context: Context, private val store: LanStore) {
                     .put("kind", kindOf(s)).put("snippet", snippet(s.text, tokens)),
             )
         }
-        json(out, JSONObject().put("device", store.hello()).put("results", results))
+        val bytes = JSONObject().put("device", store.hello()).put("results", results).toString().toByteArray()
+        out.write("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n".toByteArray())
+        LanCrypto.Writer(key, out).frame(bytes, last = true)
+        out.flush()
     }
 
-    private fun file(out: OutputStream, id: Long?) {
+    /** Fichier chiffré : une trame avec son nom, puis le contenu par trames de 64 Ko. */
+    private fun file(out: OutputStream, key: ByteArray, id: Long?) {
         val shot = id?.let { runBlocking { app.database.screenshotDao().get(it) } } ?: return respond(out, 404, "introuvable")
-        val uri = Uri.parse(shot.uri)
-        val size = context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
-            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L
-        } ?: -1L
-        val input = context.contentResolver.openInputStream(uri) ?: return respond(out, 404, "introuvable")
+        val input = context.contentResolver.openInputStream(Uri.parse(shot.uri)) ?: return respond(out, 404, "introuvable")
         input.use {
-            val head = StringBuilder("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n")
-            head.append("Content-Disposition: attachment; filename*=UTF-8''").append(URLEncoder.encode(shot.displayName, "UTF-8").replace("+", "%20")).append("\r\n")
-            if (size >= 0) head.append("Content-Length: ").append(size).append("\r\n")
-            out.write(head.append("\r\n").toString().toByteArray())
-            it.copyTo(out)
-            out.flush()
+            out.write("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n".toByteArray())
+            val w = LanCrypto.Writer(key, out)
+            w.frame(JSONObject().put("name", shot.displayName).toString().toByteArray())
+            w.stream(it)
         }
     }
 
@@ -270,6 +279,12 @@ class LanService : Service() {
             .setContentText("Tes appareils appairés peuvent chercher ici · code ${store.pairCode}")
             .setContentIntent(open)
             .setOngoing(true)
+            // Écran verrouillé : notification visible, mais sans le code d'appairage.
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_lan)
+                    .setContentTitle("Trieur visible sur le Wi-Fi").build(),
+            )
             .build()
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE) else startForeground(ID, n)
         if (server == null) server = LanServer(this, store).also { it.start() }

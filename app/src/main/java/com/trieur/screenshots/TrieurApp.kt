@@ -63,6 +63,11 @@ class TrieurApp : Application() {
         super.onCreate()
         IndexJobService.schedule(this)
         appScope.launch { reclassifyIfRulesChanged() }
+        // Fichiers reçus d'un autre appareil pour être ouverts ici : effacés au bout d'un jour.
+        appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val old = System.currentTimeMillis() - 24 * 3600_000L
+            java.io.File(cacheDir, "remote").listFiles()?.filter { it.lastModified() < old }?.forEach { it.delete() }
+        }
     }
 
     fun setSourceEnabled(source: Source, enabled: Boolean) {
