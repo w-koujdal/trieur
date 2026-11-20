@@ -59,6 +59,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Sources indexées (réglage). */
     val enabledSources: StateFlow<Set<Source>> = trieur.sources
 
+    /** Dossiers de PDF choisis (réglage). */
+    val pdfTrees: StateFlow<Set<String>> = trieur.pdfTrees
+
+    fun addPdfTree(uri: String) {
+        trieur.addPdfTree(uri)
+        startScan(force = true)
+    }
+
+    /** Retire le dossier : ses PDF sortent de l'index au prochain scan (les fichiers restent). */
+    fun removePdfTree(uri: String) {
+        trieur.removePdfTree(uri)
+        if (_source.value == Source.PDF && trieur.pdfTrees.value.isEmpty()) selectSource(null)
+        startScan(force = true)
+    }
+
     /** Lot de nettoyage affiché (filtre supplémentaire sur ses images), null sinon. */
     private val _cleanup = MutableStateFlow<Suggestion?>(null)
     val cleanup: StateFlow<Suggestion?> = _cleanup.asStateFlow()

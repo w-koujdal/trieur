@@ -33,6 +33,8 @@ class ScreenshotScanner(
     private val context: Context,
     private val dao: ScreenshotDao,
     private val enabledSources: () -> Set<Source>,
+    /** Dossiers de PDF choisis par l'utilisateur (URI d'arborescence du sélecteur d'Android). */
+    private val pdfTrees: () -> Set<String> = { emptySet() },
 ) {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val labeler = ImageLabeling.getClient(
@@ -63,15 +65,35 @@ class ScreenshotScanner(
 
         val sources = enabledSources()
         val onDevice = queryImages().filter { it.source in sources }
+
+        // PDF : un dossier illisible (accès retiré, carte SD absente) ne doit pas vider ses entrées.
+        val pdfs = mutableListOf<PdfSource.PdfFile>()
+        val unreadable = mutableListOf<String>()
+        for (tree in pdfTrees()) {
+            try {
+                pdfs += PdfSource.list(context, Uri.parse(tree))
+            } catch (e: Exception) {
+                Log.w(TAG, "Dossier PDF illisible : $tree", e)
+                unreadable += tree
+            }
+        }
         val indexed = dao.indexedIds().toSet()
 
-        // Images supprimées du téléphone, ou d'une source désactivée : on les retire de l'index.
-        val gone = indexed - onDevice.mapTo(HashSet()) { it.id }
+        // Fichiers supprimés, ou d'une source / d'un dossier retirés : on les sort de l'index.
+        val present = HashSet<Long>().apply {
+            onDevice.mapTo(this) { it.id }
+            pdfs.mapTo(this) { it.id }
+            addAll(dao.idsInFolders(unreadable))
+        }
+        val gone = indexed - present
         gone.chunked(500).forEach { dao.delete(it) }
+        gone.filter { it < 0 }.forEach { PdfSource.thumbnailFile(context, it).delete() }
 
         // Du plus récent au plus ancien : ce qui compte le plus est cherchable en premier.
         val todo = onDevice.filter { it.id !in indexed }
-        onProgress(0, todo.size)
+        val pdfTodo = pdfs.filter { it.id !in indexed }
+        val total = todo.size + pdfTodo.size
+        onProgress(0, total)
         todo.forEachIndexed { i, item ->
             val (text, labels) = analyze(item)
             val sourceApp = Classifier.sourceApp(item.name, item.folder)
@@ -91,7 +113,12 @@ class ScreenshotScanner(
                     tags = labels?.let(Labels::searchTags),
                 )
             )
-            onProgress(i + 1, todo.size)
+            onProgress(i + 1, total)
+        }
+
+        pdfTodo.forEachIndexed { i, pdf ->
+            indexPdf(pdf)
+            onProgress(todo.size + i + 1, total)
         }
 
         // Rattrapage des empreintes (images indexées avant leur introduction, ou échec précédent).
@@ -112,7 +139,41 @@ class ScreenshotScanner(
             val category = Classifier.classify(row.text, row.sourceApp, Source.fromName(row.source), labels)
             dao.setLabels(m.mediaId, Labels.encode(labels), Labels.searchTags(labels), category.name)
         }
-        todo.size
+        total
+    }
+
+    /** PDF : OCR des premières pages, vignette de la première, empreinte pour les doublons. */
+    private suspend fun indexPdf(pdf: PdfSource.PdfFile) {
+        val text = StringBuilder()
+        var hash: Long? = null
+        try {
+            PdfSource.renderPages(context, pdf.uri) { index, page ->
+                if (index == 0) {
+                    PdfSource.saveThumbnail(context, pdf.id, page)
+                    hash = ImageHash.ofBitmap(page, cropBars = false)
+                }
+                text.appendLine(recognizer.process(InputImage.fromBitmap(page, 0)).await().text)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "PDF illisible : ${pdf.name}", e) // protégé par mot de passe, abîmé…
+        }
+        val content = text.toString().trim()
+        dao.insert(
+            Screenshot(
+                mediaId = pdf.id,
+                uri = pdf.uri.toString(),
+                displayName = pdf.name,
+                dateTaken = pdf.modified,
+                text = content,
+                sourceApp = null,
+                category = Classifier.classify(content, null, Source.PDF).name,
+                dhash = hash,
+                source = Source.PDF.name,
+                folder = pdf.tree,
+                labels = "",
+                tags = "pdf document",
+            )
+        )
     }
 
     /** Texte (OCR) et, hors captures d'écran, étiquettes de ce que montre l'image. */

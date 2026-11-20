@@ -117,11 +117,11 @@ fun DetailSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 12.dp),
             ) {
-                Button(onClick = { openImage(context, shot.uri) }, modifier = Modifier.weight(1f)) { Text("Ouvrir") }
+                Button(onClick = { openItem(context, shot) }, modifier = Modifier.weight(1f)) { Text("Ouvrir") }
                 OutlinedButton(onClick = onShare) {
                     Icon(Icons.Filled.Share, contentDescription = "Partager")
                 }
-                if (canDelete) {
+                if (canDelete && shot.source != Source.PDF.name) {
                     OutlinedButton(onClick = onDelete) {
                         Icon(Icons.Filled.Delete, contentDescription = "Mettre à la corbeille")
                     }

@@ -1,7 +1,7 @@
 # Trieur
 
 Appli Android qui **retrouve n'importe quelle image par ce qu'elle contient** : captures d'écran,
-téléchargements et galerie. Le texte est lu (OCR) et les photos reconnues directement sur le
+téléchargements, galerie et PDF. Le texte est lu (OCR) et les photos reconnues directement sur le
 téléphone. Gratuit, sans pub, sans compte, **sans accès à Internet**.
 
 > Né d'un fil Reddit : « je trie encore à la main ma galerie, mes captures et mes téléchargements ».
@@ -17,6 +17,7 @@ téléphone. Gratuit, sans pub, sans compte, **sans accès à Internet**.
 | **Actions** | Liens, e-mails, numéros et codes trouvés dans le texte deviennent des boutons (ouvrir, écrire, appeler, copier). Partager, mettre à la corbeille. |
 | **Nettoyage guidé** | Doublons (le plus récent est gardé), codes de vérification périmés, vieilles captures par appli, captures sans texte. Un lot = une sélection prête à vérifier. Jamais de lot « vieilles photos » pour l'appareil photo. |
 | **Sélection multiple** | Appui long, puis « Tout », partager ou corbeille en une confirmation. |
+| **PDF** | Dossiers choisis dans les réglages (sélecteur d'Android) : les 5 premières pages sont lues, vignette de la première page. Cherchable comme le reste. |
 | **En arrière-plan** | Les nouvelles images sont indexées en ~10 s, appli fermée. |
 
 ## Confidentialité
@@ -52,6 +53,11 @@ x86_64, élargir `abiFilters` dans `app/build.gradle.kts`.
 .\gradlew.bat testDebugUnitTest
 ```
 
+Sur émulateur (gratuit, Android Studio) : la version debug contient aussi `x86_64`. Un AVD
+Android 16 avec des images de test générées (ticket, billet, code SMS, adresse, doublon, PDF)
+a servi à vérifier tout le parcours : accueil → permission → indexation → filtres → recherche →
+panneau → actions → nettoyage → corbeille → dossier PDF.
+
 Les règles (classement, détection de liens/numéros/codes, doublons, nettoyage, étiquettes,
 sections de dates, sources) sont en Kotlin pur et testées sans téléphone.
 
@@ -73,6 +79,7 @@ app/src/main/java/com/trieur/screenshots/
 ├── scan/
 │   ├── ScreenshotScanner.kt  MediaStore → OCR + étiquetage sur image réduite → base
 │   ├── IndexJobService.kt    JobScheduler : nouvelle image (déclencheur de contenu) + toutes les 12 h
+│   ├── PdfSource.kt          dossiers choisis (SAF), rendu des pages (PdfRenderer), vignettes
 │   ├── ImageHash.kt          empreinte visuelle (barres système ignorées)
 │   └── MediaAccess.kt        permissions selon la version d'Android
 └── ui/                       Compose : écran principal, filtres, grille par date, panneaux
@@ -89,7 +96,8 @@ Choix notables :
 
 ## Limites connues
 
-- Les PDF ne sont pas lus (la permission « photos » d'Android ne les donne pas).
+- PDF : seulement les dossiers choisis (Android interdit la racine de Download, choisir un sous-dossier),
+  5 premières pages, pas de corbeille depuis l'appli. Les PDF protégés par mot de passe sont ignorés.
 - L'OCR est optimisé pour l'alphabet latin.
 - Si l'appli est « forcée à l'arrêt » ou mise en veille profonde par Samsung, l'indexation en
   arrière-plan s'arrête jusqu'à la prochaine ouverture.

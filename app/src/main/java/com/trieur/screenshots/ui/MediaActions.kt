@@ -11,19 +11,29 @@ import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
 import com.trieur.screenshots.data.Detected
+import com.trieur.screenshots.data.Screenshot
+import com.trieur.screenshots.data.Source
+import com.trieur.screenshots.scan.PdfSource
 
-fun openImage(context: Context, uri: String) {
-    start(context, Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), "image/*"), "afficher l'image")
+private val Screenshot.mime: String get() = if (source == Source.PDF.name) "application/pdf" else "image/*"
+
+/** Ce que la grille affiche : la vignette mise en cache pour un PDF, l'image elle-même sinon. */
+fun thumbnailModel(context: Context, shot: Screenshot): Any =
+    if (shot.source == Source.PDF.name) PdfSource.thumbnailFile(context, shot.mediaId) else Uri.parse(shot.uri)
+
+fun openItem(context: Context, shot: Screenshot) {
+    start(context, Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(shot.uri), shot.mime), "ouvrir ce fichier")
 }
 
-fun shareImages(context: Context, uris: List<String>) {
-    if (uris.isEmpty()) return
-    val list = ArrayList(uris.map(Uri::parse))
+fun shareItems(context: Context, shots: List<Screenshot>) {
+    if (shots.isEmpty()) return
+    val list = ArrayList(shots.map { Uri.parse(it.uri) })
+    val type = shots.map { it.mime }.distinct().singleOrNull() ?: "*/*"
     val intent = if (list.size == 1) {
         Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, list[0])
     } else {
         Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, list)
-    }.setType("image/*")
+    }.setType(type)
     // Le sélecteur transmet les images aux applis choisies avec le droit de lecture.
     start(context, Intent.createChooser(intent, null), "partager")
 }

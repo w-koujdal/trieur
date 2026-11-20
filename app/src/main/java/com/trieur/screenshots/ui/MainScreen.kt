@@ -1,6 +1,8 @@
 package com.trieur.screenshots.ui
 
 import android.app.Activity
+import android.widget.Toast
+import com.trieur.screenshots.data.Source
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -68,6 +70,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val source by vm.source.collectAsStateWithLifecycle()
     val sourceCounts by vm.sourceCounts.collectAsStateWithLifecycle()
     val enabledSources by vm.enabledSources.collectAsStateWithLifecycle()
+    val pdfTrees by vm.pdfTrees.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
     val selection by vm.selection.collectAsStateWithLifecycle()
     val selecting = selection.isNotEmpty()
@@ -104,8 +107,13 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     }
 
     fun requestDelete(shots: List<Screenshot>) {
-        val sender = deleteRequest(context, shots.map { it.uri }) ?: return
-        pendingDelete = shots.map { it.mediaId }
+        // Android ne permet pas de mettre un PDF (fichier hors MediaStore) à la corbeille d'ici.
+        val media = shots.filter { it.source != Source.PDF.name }
+        if (media.size < shots.size) {
+            Toast.makeText(context, "Les PDF restent en place : supprime-les depuis Mes fichiers", Toast.LENGTH_LONG).show()
+        }
+        val sender = deleteRequest(context, media.map { it.uri }) ?: return
+        pendingDelete = media.map { it.mediaId }
         deleteLauncher.launch(IntentSenderRequest.Builder(sender).build())
     }
 
@@ -155,7 +163,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     },
                     actions = {
                         TextButton(onClick = { vm.toggleSelectAll(results.map { it.mediaId }) }) { Text("Tout") }
-                        IconButton(onClick = { shareImages(context, selectedShots.map { it.uri }) }) {
+                        IconButton(onClick = { shareItems(context, selectedShots) }) {
                             Icon(Icons.Filled.Share, contentDescription = "Partager la sélection")
                         }
                         if (canDelete) {
@@ -254,7 +262,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         DetailSheet(
             shot = shot,
             query = query,
-            onShare = { shareImages(context, listOf(shot.uri)) },
+            onShare = { shareItems(context, listOf(shot)) },
             onDelete = { requestDelete(listOf(shot)) },
             onCategoryChange = { vm.setCategory(shot, it) },
             onDismiss = { vm.openDetail(null) },
@@ -265,6 +273,9 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         SettingsSheet(
             enabled = enabledSources,
             onToggle = vm::setSourceEnabled,
+            pdfTrees = pdfTrees,
+            onAddPdfTree = vm::addPdfTree,
+            onRemovePdfTree = vm::removePdfTree,
             onDismiss = { showSettings = false },
         )
     }

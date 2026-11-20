@@ -25,19 +25,28 @@ object ImageHash {
         val options = BitmapFactory.Options().apply { inSampleSize = (bounds.outWidth / 64).coerceAtLeast(1) }
         val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } ?: return null
 
-        val top = (decoded.height * BAR_FRACTION).toInt()
-        val height = (decoded.height * (1 - 2 * BAR_FRACTION)).toInt().coerceAtLeast(1)
-        val cropped = Bitmap.createBitmap(decoded, 0, top, decoded.width, height)
+        try {
+            ofBitmap(decoded, cropBars = true)
+        } finally {
+            decoded.recycle()
+        }
+    }.getOrNull()
+
+    /** Empreinte d'une image déjà décodée (ne la libère pas). [cropBars] : ignorer les barres système. */
+    fun ofBitmap(bitmap: Bitmap, cropBars: Boolean): Long {
+        val top = if (cropBars) (bitmap.height * BAR_FRACTION).toInt() else 0
+        val height = if (cropBars) (bitmap.height * (1 - 2 * BAR_FRACTION)).toInt().coerceAtLeast(1) else bitmap.height
+        val cropped = if (cropBars) Bitmap.createBitmap(bitmap, 0, top, bitmap.width, height) else bitmap
         val tiny = Bitmap.createScaledBitmap(cropped, 9, 8, true)
 
         val pixels = IntArray(72)
         tiny.getPixels(pixels, 0, 9, 0, 0, 9, 8)
-        listOf(decoded, cropped, tiny).distinct().forEach { it.recycle() }
+        listOf(cropped, tiny).filter { it !== bitmap }.distinct().forEach { it.recycle() }
 
         val gray = IntArray(72) { i ->
             val p = pixels[i]
             (Color.red(p) * 299 + Color.green(p) * 587 + Color.blue(p) * 114) / 1000
         }
-        Duplicates.dHash(gray)
-    }.getOrNull()
+        return Duplicates.dHash(gray)
+    }
 }

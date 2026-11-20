@@ -16,7 +16,8 @@ const val CAMERA_APP = "Appareil photo"
  * captures sans texte. Les catégories choisies à la main ne sont jamais proposées.
  */
 fun cleanupSuggestions(all: List<Screenshot>, now: Long, minPerApp: Int = 5): List<Suggestion> {
-    val candidates = all.filterNot { it.categoryLocked }
+    // PDF exclus : Android ne permet pas de les mettre à la corbeille depuis l'appli.
+    val candidates = all.filterNot { it.categoryLocked || it.source == Source.PDF.name }
     val out = mutableListOf<Suggestion>()
 
     candidates.filter { it.category == Category.CODE.name && now - it.dateTaken > DAY }

@@ -33,9 +33,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.trieur.screenshots.data.Screenshot
+import com.trieur.screenshots.data.Source
 import java.time.LocalDate
 
 /** Grille de vignettes regroupées par date. Les résultats arrivent déjà triés du plus récent au plus ancien. */
@@ -107,9 +109,11 @@ private fun Thumbnail(
             ),
     ) {
         AsyncImage(
-            model = Uri.parse(shot.uri),
+            model = thumbnailModel(LocalContext.current, shot),
             contentDescription = shot.displayName,
-            contentScale = ContentScale.Crop,
+            // Page de document : toute la largeur, le haut de la page ; image : recadrée au centre.
+            contentScale = if (shot.source == Source.PDF.name) ContentScale.FillWidth else ContentScale.Crop,
+            alignment = if (shot.source == Source.PDF.name) Alignment.TopCenter else Alignment.Center,
             modifier = Modifier.fillMaxSize(),
         )
         if (selected) {

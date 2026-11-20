@@ -39,8 +39,22 @@ class TrieurApp : Application() {
     /** Sources indexées (réglage), lues aussi par le scan d'arrière-plan. */
     val sources: StateFlow<Set<Source>> get() = _sources.asStateFlow()
 
+    private val _pdfTrees by lazy { MutableStateFlow(prefs.getStringSet(KEY_PDF_TREES, null)?.toSet() ?: emptySet()) }
+
+    /** Dossiers de PDF choisis (URI d'arborescence, accès conservé par takePersistableUriPermission). */
+    val pdfTrees: StateFlow<Set<String>> get() = _pdfTrees.asStateFlow()
+
     val scanner: ScreenshotScanner by lazy {
-        ScreenshotScanner(this, database.screenshotDao()) { _sources.value }
+        ScreenshotScanner(this, database.screenshotDao(), { _sources.value }, { _pdfTrees.value })
+    }
+
+    fun addPdfTree(uri: String) = savePdfTrees(_pdfTrees.value + uri)
+
+    fun removePdfTree(uri: String) = savePdfTrees(_pdfTrees.value - uri)
+
+    private fun savePdfTrees(next: Set<String>) {
+        _pdfTrees.value = next
+        prefs.edit().putStringSet(KEY_PDF_TREES, next).apply()
     }
 
     override fun onCreate() {
@@ -91,5 +105,6 @@ class TrieurApp : Application() {
         const val TAG = "TrieurApp"
         const val KEY_CLASSIFIER_VERSION = "classifierVersion"
         const val KEY_SOURCES = "sources"
+        const val KEY_PDF_TREES = "pdfTrees"
     }
 }

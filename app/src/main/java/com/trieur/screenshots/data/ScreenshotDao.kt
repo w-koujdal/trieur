@@ -76,6 +76,10 @@ interface ScreenshotDao {
     @Query("SELECT mediaId FROM screenshots")
     suspend fun indexedIds(): List<Long>
 
+    /** Entrées rangées sous ces dossiers (pour les PDF : URI du dossier choisi). */
+    @Query("SELECT mediaId FROM screenshots WHERE folder IN (:folders)")
+    suspend fun idsInFolders(folders: List<String>): List<Long>
+
     @Query("SELECT mediaId, displayName, text, source, folder, labels FROM screenshots")
     suspend fun classificationInputs(): List<ClassificationInput>
 
@@ -90,7 +94,7 @@ interface ScreenshotDao {
     suspend fun updateClassification(mediaId: Long, sourceApp: String?, category: String, tags: String?)
 
     /** Images (hors captures) pas encore passées à l'étiquetage. */
-    @Query("SELECT mediaId, uri FROM screenshots WHERE labels IS NULL AND source != 'SCREENSHOT'")
+    @Query("SELECT mediaId, uri FROM screenshots WHERE labels IS NULL AND source IN ('DOWNLOAD', 'GALLERY')")
     suspend fun missingLabels(): List<LabelInput>
 
     @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
@@ -112,7 +116,7 @@ interface ScreenshotDao {
     @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
     fun observe(mediaId: Long): Flow<Screenshot?>
 
-    @Query("SELECT mediaId, uri FROM screenshots WHERE dhash IS NULL")
+    @Query("SELECT mediaId, uri FROM screenshots WHERE dhash IS NULL AND source != 'PDF'")
     suspend fun missingHashes(): List<HashInput>
 
     @Query("UPDATE screenshots SET dhash = :hash WHERE mediaId = :mediaId")

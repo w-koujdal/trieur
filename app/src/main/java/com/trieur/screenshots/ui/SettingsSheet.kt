@@ -1,6 +1,16 @@
 package com.trieur.screenshots.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -30,12 +40,18 @@ private val Source.help: String
         Source.DOWNLOAD -> "Images du dossier Téléchargements"
         Source.GALLERY -> "Photos de l'appareil photo et images enregistrées depuis les applis. " +
             "La première lecture peut prendre plusieurs minutes."
+        Source.PDF -> "Documents PDF des dossiers choisis"
     }
+
+/** « primary:Download/Factures » → « Download/Factures ». */
+private fun treeLabel(uri: String): String =
+    runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(uri)).substringAfter(':').ifEmpty { "Stockage" } }
+        .getOrDefault(uri)
 
 /** Un interrupteur par source ; toute la ligne est cliquable. Au moins une source reste active. */
 @Composable
 fun SourceToggles(enabled: Set<Source>, onToggle: (Source, Boolean) -> Unit, transparent: Boolean = false) {
-    Source.entries.forEach { source ->
+    Source.MEDIA.forEach { source ->
         val on = source in enabled
         val canToggle = !on || enabled.size > 1
         ListItem(
@@ -58,8 +74,24 @@ fun SourceToggles(enabled: Set<Source>, onToggle: (Source, Boolean) -> Unit, tra
 /** Réglages : sources indexées, puis à propos et confidentialité. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsSheet(enabled: Set<Source>, onToggle: (Source, Boolean) -> Unit, onDismiss: () -> Unit) {
+fun SettingsSheet(
+    enabled: Set<Source>,
+    onToggle: (Source, Boolean) -> Unit,
+    pdfTrees: Set<String>,
+    onAddPdfTree: (String) -> Unit,
+    onRemovePdfTree: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
+    // Sélecteur de dossier d'Android : accès à ce dossier seulement, conservé après redémarrage.
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            onAddPdfTree(uri.toString())
+        }
+    }
     val version = remember(context) {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     }
@@ -82,6 +114,40 @@ fun SettingsSheet(enabled: Set<Source>, onToggle: (Source, Boolean) -> Unit, onD
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
             SourceToggles(enabled, onToggle)
+
+            Text(
+                "Dossiers PDF",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp),
+            )
+            Text(
+                "Android ne donne pas accès aux PDF avec la permission photos : choisis les dossiers à lire " +
+                    "(ex. Download). Les 5 premières pages de chaque PDF sont lues.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+            )
+            pdfTrees.sorted().forEach { tree ->
+                ListItem(
+                    headlineContent = { Text(treeLabel(tree)) },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            runCatching {
+                                context.contentResolver.releasePersistableUriPermission(
+                                    Uri.parse(tree), Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                )
+                            }
+                            onRemovePdfTree(tree)
+                        }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Retirer ${treeLabel(tree)}")
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            }
+            OutlinedButton(
+                onClick = { pickFolder.launch(null) },
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+            ) { Text("Ajouter un dossier") }
 
             HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
             Text(

@@ -5,10 +5,16 @@ enum class Source(val label: String) {
     SCREENSHOT("Captures"),
     DOWNLOAD("Téléchargements"),
     /** Tout le reste : appareil photo, images reçues ou enregistrées depuis les applis. */
-    GALLERY("Galerie");
+    GALLERY("Galerie"),
+
+    /** PDF des dossiers choisis dans les réglages (pas une source du MediaStore). */
+    PDF("PDF");
 
     companion object {
         val DEFAULT_ENABLED = setOf(SCREENSHOT, DOWNLOAD)
+
+        /** Sources d'images, activables une à une (les PDF dépendent des dossiers choisis). */
+        val MEDIA = listOf(SCREENSHOT, DOWNLOAD, GALLERY)
 
         fun fromName(name: String?): Source = entries.firstOrNull { it.name == name } ?: SCREENSHOT
 
