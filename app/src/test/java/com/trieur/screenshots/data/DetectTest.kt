@@ -40,6 +40,15 @@ class DetectTest {
     }
 
     @Test
+    fun phone_withLetterOReadByOcr() {
+        // Cas vu sur l'émulateur : « 06 » lu « O6 ».
+        val found = detect("Appelle-moi au O6 12 34 56 78 si tu es en retard")
+        assertEquals(listOf("0612345678"), found.filterIsInstance<Detected.Phone>().map { it.dial })
+        // Mais pas au milieu d'un mot.
+        assertTrue(detect("BO6 12 34 56 78").none { it is Detected.Phone })
+    }
+
+    @Test
     fun code_onlyWithContext_andNotInsidePhone() {
         assertEquals(
             listOf(Detected.Code("482913")),

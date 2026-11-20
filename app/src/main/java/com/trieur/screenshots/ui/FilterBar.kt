@@ -43,9 +43,17 @@ fun FilterBar(
     onSourceSelected: (Source?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Une puce ajoutée en tête (lot de nettoyage) resterait hors de l'écran à gauche : on revient au début.
+    // Une puce qui apparaît en tête (lot de nettoyage, source) resterait hors de l'écran à gauche :
+    // LazyRow garde l'ancienne première puce en place. Dès que la tête change, on revient au début.
+    val showSources = sources.size > 1 || selectedSource != null
+    val firstKey = when {
+        cleanupLabel != null -> "cleanup"
+        showSources -> "sources"
+        apps.isNotEmpty() -> "apps"
+        else -> categories.firstOrNull()?.first?.name
+    }
     val state = rememberLazyListState()
-    LaunchedEffect(cleanupLabel) { if (cleanupLabel != null) state.scrollToItem(0) }
+    LaunchedEffect(firstKey) { state.scrollToItem(0) }
     LazyRow(
         state = state,
         modifier = modifier,
@@ -63,7 +71,7 @@ fun FilterBar(
             }
         }
         // Le filtre de source n'a de sens qu'avec plusieurs sources indexées.
-        if (sources.size > 1 || selectedSource != null) {
+        if (showSources) {
             item(key = "sources") {
                 MenuChip(
                     label = selectedSource?.label ?: "Tout",

@@ -231,11 +231,11 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             when {
 
                 results.isEmpty() && filtering -> CenteredMessage(
-                    if (query.isNotBlank()) "Aucune capture ne contient « $query » avec ces filtres."
-                    else "Aucune capture avec ces filtres."
+                    if (query.isNotBlank()) "Aucune image ne contient « $query » avec ces filtres."
+                    else "Aucune image avec ces filtres."
                 )
                 results.isEmpty() && !scan.running -> CenteredMessage(
-                    "Aucune capture indexée pour l'instant.",
+                    "Aucune image indexée pour l'instant.",
                     action = "Scanner",
                     onAction = ::scanOrAsk,
                 )

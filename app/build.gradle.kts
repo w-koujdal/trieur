@@ -25,6 +25,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug seulement : x86_64 en plus pour tester sur l'émulateur du PC.
+            ndk {
+                abiFilters += "x86_64"
+            }
+        }
         release {
             // R8 retire le code et les ressources inutilisés (Compose, icônes, ML Kit…).
             isMinifyEnabled = true

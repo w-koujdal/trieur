@@ -32,8 +32,10 @@ fun detect(text: String, max: Int = 8): List<Detected> {
     }
 
     PHONE.findAll(text).forEach { m ->
-        val dial = m.value.filter { it.isDigit() || it == '+' }
-        found.putIfAbsent("tel:$dial", Detected.Phone(m.value.trim(), dial))
+        // L'OCR lit souvent le 0 initial comme la lettre O (« O6 12 34 56 78 »).
+        val fixed = m.value.trim().replace('O', '0').replace('o', '0')
+        val dial = fixed.filter { it.isDigit() || it == '+' }
+        found.putIfAbsent("tel:$dial", Detected.Phone(fixed, dial))
     }
 
     if (Classifier.hasCodeContext(foldText(text))) {
@@ -54,4 +56,4 @@ private val URL = Regex(
     RegexOption.IGNORE_CASE,
 )
 
-private val PHONE = Regex("""(?<![\d+])(?:\+33\s?|0033\s?|0)[1-9](?:[\s.-]?\d{2}){4}(?!\d)""")
+private val PHONE = Regex("""(?<![\w+])(?:\+33\s?|0033\s?|[0Oo])[1-9](?:[\s.-]?\d{2}){4}(?!\d)""")

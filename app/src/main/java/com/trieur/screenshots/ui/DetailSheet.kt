@@ -152,7 +152,7 @@ fun DetailSheet(
                     .verticalScroll(rememberScrollState())
             ) {
                 if (shot.text.isBlank()) {
-                    Text("Aucun texte reconnu sur cette capture.", style = MaterialTheme.typography.bodyMedium)
+                    Text("Aucun texte reconnu sur cette image.", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     SelectionContainer { Text(annotated, style = MaterialTheme.typography.bodyMedium) }
                 }

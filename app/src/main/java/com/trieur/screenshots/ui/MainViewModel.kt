@@ -196,6 +196,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun removeFromIndex(ids: Collection<Long>) {
         val gone = ids.toSet()
         _selection.update { it - gone }
+        // Un lot de nettoyage vidé n'a plus rien à montrer : on le ferme.
+        _cleanup.update { lot -> lot?.let { it.copy(ids = it.ids - gone) }?.takeIf { it.ids.isNotEmpty() } }
         viewModelScope.launch { gone.chunked(500).forEach { dao.delete(it) } }
     }
 

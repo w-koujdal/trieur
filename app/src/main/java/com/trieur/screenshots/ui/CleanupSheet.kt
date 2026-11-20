@@ -37,7 +37,7 @@ fun CleanupSheet(suggestions: List<Suggestion>, onPick: (Suggestion) -> Unit, on
             )
             Text(
                 if (suggestions.isEmpty()) "Rien à nettoyer pour l'instant."
-                else "Touche un lot : ses captures seront sélectionnées, tu vérifies puis tu mets à la corbeille.",
+                else "Touche un lot : ses images seront sélectionnées, tu vérifies puis tu mets à la corbeille.",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
