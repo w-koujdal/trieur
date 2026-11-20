@@ -19,6 +19,7 @@ data class ClassificationInput(
 )
 data class HashInput(val mediaId: Long, val uri: String)
 data class LabelInput(val mediaId: Long, val uri: String)
+data class ModifiedInfo(val mediaId: Long, val modified: Long, val dateTaken: Long)
 
 /** Tous les filtres sont facultatifs : null = pas de filtre. */
 @Dao
@@ -75,6 +76,24 @@ interface ScreenshotDao {
 
     @Query("SELECT mediaId FROM screenshots")
     suspend fun indexedIds(): List<Long>
+
+    @Query("SELECT mediaId, modified, dateTaken FROM screenshots")
+    suspend fun modifiedInfo(): List<ModifiedInfo>
+
+    @Query("UPDATE screenshots SET modified = :modified WHERE mediaId = :mediaId")
+    suspend fun setModified(mediaId: Long, modified: Long)
+
+    /** Nouvelle analyse d'une image modifiée : contenu remplacé, catégorie manuelle conservée. */
+    @Query(
+        """
+        UPDATE screenshots SET text = :text, labels = :labels, tags = :tags, dhash = :dhash,
+          modified = :modified, category = CASE WHEN categoryLocked THEN category ELSE :category END
+        WHERE mediaId = :mediaId
+        """
+    )
+    suspend fun updateContent(
+        mediaId: Long, text: String, labels: String?, tags: String?, dhash: Long?, category: String, modified: Long,
+    )
 
     /** Entrées rangées sous ces dossiers (pour les PDF : URI du dossier choisi). */
     @Query("SELECT mediaId FROM screenshots WHERE folder IN (:folders)")

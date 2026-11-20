@@ -30,6 +30,8 @@ data class Screenshot(
     val labels: String? = null,
     /** Mots cherchables tirés des étiquettes (français et anglais), indexés avec le texte. */
     val tags: String? = null,
+    /** DATE_MODIFIED du MediaStore (secondes) lors de l'analyse ; 0 = inconnue (avant la v6). */
+    @ColumnInfo(defaultValue = "0") val modified: Long = 0,
 )
 
 /**

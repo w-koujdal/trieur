@@ -49,6 +49,8 @@ class ScreenshotScanner(
         val dateTaken: Long,
         val folder: String?,
         val source: Source,
+        /** DATE_MODIFIED (secondes) : change quand l'image est retouchée sur place. */
+        val modified: Long,
     )
 
     // L'appli et la tâche d'arrière-plan partagent ce scanner : un seul scan à la fois.
@@ -93,10 +95,26 @@ class ScreenshotScanner(
         gone.chunked(500).forEach { dao.delete(it) }
         gone.filter { it < 0 }.forEach { PdfSource.thumbnailFile(context, it).delete() }
 
+        // Images retouchées sur place (même identifiant, date de modification différente) : à relire.
+        // Avant la v6 la date n'était pas connue (0) : on l'enregistre sans relire.
+        val known = dao.modifiedInfo().associateBy { it.mediaId }
+        val changed = mutableListOf<MediaItem>()
+        for (item in onDevice) {
+            val k = known[item.id] ?: continue
+            when {
+                k.modified == 0L -> dao.setModified(item.id, item.modified)
+                k.modified != item.modified -> changed += item
+            }
+        }
+        // PDF modifié : on le retire puis on le relit comme un nouveau.
+        val pdfChanged = pdfs.filter { p -> known[p.id]?.let { it.dateTaken != p.modified } == true }
+        pdfChanged.forEach { dao.delete(listOf(it.id)) }
+        val pdfChangedIds = pdfChanged.mapTo(HashSet()) { it.id }
+
         // Du plus récent au plus ancien : ce qui compte le plus est cherchable en premier.
         val todo = onDevice.filter { it.id !in indexed }
-        val pdfTodo = pdfs.filter { it.id !in indexed }
-        val total = todo.size + pdfTodo.size
+        val pdfTodo = pdfs.filter { it.id !in indexed || it.id in pdfChangedIds }
+        val total = todo.size + changed.size + pdfTodo.size
         onProgress(0, total)
         todo.forEachIndexed { i, item ->
             onProgress(i + 1, total)
@@ -118,13 +136,29 @@ class ScreenshotScanner(
                     folder = item.folder,
                     labels = labels?.let(Labels::encode),
                     tags = labels?.let(Labels::searchTags),
+                    modified = item.modified,
                 )
+            )
+        }
+
+        changed.forEachIndexed { i, item ->
+            onProgress(todo.size + i + 1, total)
+            val (text, labels) = analyze(item) ?: return@forEachIndexed
+            val sourceApp = Classifier.sourceApp(item.name, item.folder)
+            dao.updateContent(
+                mediaId = item.id,
+                text = text,
+                labels = labels?.let(Labels::encode),
+                tags = labels?.let(Labels::searchTags),
+                dhash = ImageHash.compute(context, item.uri),
+                category = Classifier.classify(text, sourceApp, item.source, labels.orEmpty()).name,
+                modified = item.modified,
             )
         }
 
         pdfTodo.forEachIndexed { i, pdf ->
             indexPdf(pdf)
-            onProgress(todo.size + i + 1, total)
+            onProgress(todo.size + changed.size + i + 1, total)
         }
 
         // Rattrapage des empreintes (images indexées avant leur introduction, ou échec précédent).
@@ -230,6 +264,7 @@ class ScreenshotScanner(
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.RELATIVE_PATH,
+            MediaStore.Images.Media.DATE_MODIFIED,
         )
         val sort = "${MediaStore.Images.Media.DATE_ADDED} DESC"
 
@@ -240,6 +275,7 @@ class ScreenshotScanner(
             val takenCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
             val addedCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
             val pathCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
+            val modCol = c.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
                 val folder = c.getString(pathCol)
@@ -251,6 +287,7 @@ class ScreenshotScanner(
                     dateTaken = taken,
                     folder = folder,
                     source = Source.fromPath(folder),
+                    modified = c.getLong(modCol),
                 )
             }
         }

@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Screenshot::class, ScreenshotFts::class], version = 5)
+@Database(entities = [Screenshot::class, ScreenshotFts::class], version = 6)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun screenshotDao(): ScreenshotDao
 
@@ -53,6 +53,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 FTS_TRIGGERS.forEach(db::execSQL)
                 db.execSQL("INSERT INTO screenshots_fts(screenshots_fts) VALUES('rebuild')")
+            }
+        }
+
+        /** v6 : date de modification, pour relire une image modifiée sur place (recadrée, annotée). */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE screenshots ADD COLUMN modified INTEGER NOT NULL DEFAULT 0")
             }
         }
 
