@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Clair ou sombre selon le système : évite le flash blanc au lancement en mode sombre.
+         Les couleurs de l'écran viennent ensuite du thème Compose (MainActivity). -->
+    <style name="Theme.Trieur" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
