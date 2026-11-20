@@ -15,11 +15,24 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
+
+        // L'OCR embarque ~10 Mo de code natif par architecture. Seuls les téléphones ARM 64 bits
+        // sont visés (dont le Galaxy S24) : sans ce filtre, x86, x86_64 et armeabi-v7a
+        // ajoutent ~29 Mo. À élargir si on teste un jour sur un émulateur (x86_64).
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 retire le code et les ressources inutilisés (Compose, icônes, ML Kit…).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Signé avec la clé de debug pour pouvoir l'installer directement.
+            // Avant toute publication, il faudra une vraie clé de signature.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
