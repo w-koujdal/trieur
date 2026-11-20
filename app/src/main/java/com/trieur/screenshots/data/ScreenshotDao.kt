@@ -49,6 +49,17 @@ interface ScreenshotDao {
     )
     fun search(ftsQuery: String, category: String?, app: String?, source: String?): Flow<List<Screenshot>>
 
+    /** Recherche ponctuelle (demandée par un autre appareil du Wi-Fi). */
+    @Query(
+        """
+        SELECT screenshots.* FROM screenshots
+        JOIN screenshots_fts ON screenshots.mediaId = screenshots_fts.rowid
+        WHERE screenshots_fts MATCH :ftsQuery
+        ORDER BY screenshots.dateTaken DESC LIMIT :limit
+        """
+    )
+    suspend fun searchNow(ftsQuery: String, limit: Int): List<Screenshot>
+
     @Query("SELECT COUNT(*) FROM screenshots")
     fun count(): Flow<Int>
 

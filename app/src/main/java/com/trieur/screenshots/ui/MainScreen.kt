@@ -9,6 +9,8 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -82,6 +84,8 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val detail by vm.detail.collectAsStateWithLifecycle()
     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
     var showCleanup by remember { mutableStateOf(false) }
+    val remote by vm.remote.collectAsStateWithLifecycle()
+    val hasRemote = remote.loading || remote.groups.isNotEmpty()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -240,9 +244,15 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
 
             when {
 
+                results.isEmpty() && filtering && hasRemote -> Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                ) {
+                    Text("Rien sur ce téléphone.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                    RemoteResults(remote, vm)
+                }
                 results.isEmpty() && filtering -> CenteredMessage(
-                    if (query.isNotBlank()) "Aucune image ne contient « $query » avec ces filtres."
-                    else "Aucune image avec ces filtres."
+                    if (query.isNotBlank()) "Rien ne contient « $query » avec ces filtres."
+                    else "Rien avec ces filtres."
                 )
                 results.isEmpty() && !scan.running -> CenteredMessage(
                     "Aucune image indexée pour l'instant.",
@@ -255,6 +265,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     onClick = { if (selecting) vm.toggleSelection(it.mediaId) else vm.openDetail(it.mediaId) },
                     onLongClick = { vm.toggleSelection(it.mediaId) },
                     scrollResetKey = listOf(query, category, app, source, cleanup?.key),
+                    header = if (hasRemote) ({ RemoteResults(remote, vm) }) else null,
                 )
             }
         }
@@ -278,6 +289,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             pdfTrees = pdfTrees,
             onAddPdfTree = vm::addPdfTree,
             onRemovePdfTree = vm::removePdfTree,
+            devices = { DevicesSection(vm) },
             onDismiss = { showSettings = false },
         )
     }

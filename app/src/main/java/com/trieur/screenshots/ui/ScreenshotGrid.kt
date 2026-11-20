@@ -49,6 +49,8 @@ fun ScreenshotGrid(
     onLongClick: (Screenshot) -> Unit,
     /** Quand cette valeur change (recherche, filtres), la grille revient en haut. */
     scrollResetKey: Any? = null,
+    /** En tête de grille, sur toute la largeur (résultats des autres appareils). */
+    header: (@Composable () -> Unit)? = null,
 ) {
     val state = rememberLazyGridState()
     LaunchedEffect(scrollResetKey) { state.scrollToItem(0) }
@@ -64,6 +66,7 @@ fun ScreenshotGrid(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
+        if (header != null) item(key = "header", span = { GridItemSpan(maxLineSpan) }) { header() }
         sections.forEach { (title, shots) ->
             item(key = "section:$title", span = { GridItemSpan(maxLineSpan) }) {
                 Text(

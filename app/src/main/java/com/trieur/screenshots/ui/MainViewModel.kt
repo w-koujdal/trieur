@@ -90,6 +90,70 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .combine(_cleanup) { list, lot -> if (lot == null) list else list.filter { it.mediaId in lot.ids } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // ---------- mes autres appareils (même Wi-Fi) ----------
+
+    val lanStore = com.trieur.screenshots.lan.LanStore(app)
+    private val lanClient = com.trieur.screenshots.lan.LanClient(app, lanStore)
+    private val _peersVersion = MutableStateFlow(0)
+    private val _peers = MutableStateFlow(lanStore.peers)
+    val peers: StateFlow<List<com.trieur.screenshots.lan.Peer>> = _peers.asStateFlow()
+    private val _visible = MutableStateFlow(lanStore.visible)
+    val visible: StateFlow<Boolean> = _visible.asStateFlow()
+
+    init {
+        // « Visible » reste allumé d'une fois sur l'autre : on relance le service à l'ouverture.
+        if (lanStore.visible) com.trieur.screenshots.lan.LanService.setVisible(app, true)
+    }
+
+    data class RemoteState(val loading: Boolean = false, val groups: List<com.trieur.screenshots.lan.RemoteGroup> = emptyList())
+
+    /** Résultats chez les appareils appairés : cherchés en parallèle de l'index local. */
+    val remote: StateFlow<RemoteState> = combine(_query.debounce(450), _peersVersion) { q, _ -> q }
+        .flatMapLatest { q ->
+            kotlinx.coroutines.flow.flow {
+                if (q.isBlank() || lanStore.peers.isEmpty()) {
+                    emit(RemoteState())
+                } else {
+                    emit(RemoteState(loading = true))
+                    emit(RemoteState(groups = kotlinx.coroutines.withContext(Dispatchers.IO) { lanClient.searchAll(q) }))
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RemoteState())
+
+    private fun peersChanged() {
+        _peers.value = lanStore.peers
+        _peersVersion.value++
+    }
+
+    suspend fun discover(): List<com.trieur.screenshots.lan.Found> = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        lanClient.discover().filter { f -> lanStore.peers.none { it.id == f.id } }
+    }
+
+    suspend fun probe(host: String): com.trieur.screenshots.lan.Found = kotlinx.coroutines.withContext(Dispatchers.IO) { lanClient.probe(host.trim()) }
+
+    suspend fun pair(found: com.trieur.screenshots.lan.Found, code: String): Result<Unit> = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        runCatching { lanClient.pair(found, code.filter { it.isDigit() }) }.map { }.also { peersChanged() }
+    }
+
+    fun unpair(id: String) {
+        lanStore.remove(id)
+        peersChanged()
+    }
+
+    fun setVisible(on: Boolean) {
+        com.trieur.screenshots.lan.LanService.setVisible(getApplication(), on)
+        _visible.value = on
+    }
+
+    fun pairCode(): String = lanStore.pairCode
+
+    /** Récupère un fichier d'un autre appareil (cache de l'appli), pour l'ouvrir ou l'enregistrer. */
+    suspend fun fetchRemote(peer: com.trieur.screenshots.lan.Peer, hit: com.trieur.screenshots.lan.RemoteHit): Result<java.io.File> =
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            runCatching { lanClient.download(peer, hit, java.io.File(getApplication<Application>().cacheDir, "remote")) }
+        }
+
     /** Propositions de nettoyage, recalculées à chaque changement de l'index. */
     val suggestions: StateFlow<List<Suggestion>> = dao.filtered(null, null, null)
         // Pendant un scan, chaque image ajoutée relancerait le calcul (doublons : O(n²)) :

@@ -81,6 +81,7 @@ fun SettingsSheet(
     pdfTrees: Set<String>,
     onAddPdfTree: (String) -> Unit,
     onRemovePdfTree: (String) -> Unit,
+    devices: @Composable () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -152,6 +153,9 @@ fun SettingsSheet(
             ) { Text("Ajouter un dossier") }
 
             HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+            devices()
+
+            HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
             Text(
                 "Confidentialité",
                 style = MaterialTheme.typography.titleLarge,
@@ -173,9 +177,10 @@ fun SettingsSheet(
     }
 }
 
-/** Affirmations vérifiables dans le manifeste et le code (pas de permission INTERNET). */
+/** Affirmations vérifiables dans le manifeste et le code. */
 val PRIVACY_POINTS = listOf(
     "Tout est analysé sur ton téléphone : lecture du texte et reconnaissance des images.",
-    "L'appli n'a pas accès à Internet : rien ne peut être envoyé, même pas des statistiques.",
+    "Rien ne part sur Internet : le réseau ne sert qu'entre tes appareils du même Wi-Fi, appairés avec un code. " +
+        "L'envoi de statistiques de ML Kit à Google est coupé.",
     "Elle ne modifie jamais tes images. La corbeille passe par la confirmation d'Android et reste récupérable 30 jours.",
 )

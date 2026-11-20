@@ -3,11 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-      Aucun accès réseau : ML Kit (modèles embarqués) ajoute INTERNET pour envoyer des statistiques
-      d'utilisation à Google. On le retire : rien de ce que l'appli lit ne peut quitter le téléphone.
+      Réseau local seulement, pour chercher entre tes appareils sur le même Wi-Fi (Trieur PC) :
+      le code ne contacte et n'accepte que des adresses privées (192.168.x, 10.x…).
+      ML Kit embarque un envoi de statistiques à Google : ses composants sont retirés plus bas,
+      rien de ce que l'appli lit ne part sur Internet.
     -->
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Android 13+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -27,7 +34,8 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="Trieur"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Trieur">
+        android:theme="@style/Theme.Trieur"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -41,5 +49,32 @@
             android:name=".scan.IndexJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
+            android:name=".lan.LanService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!-- Fichiers reçus d'un autre appareil, ouverts avec l'appli adaptée. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Statistiques d'utilisation de ML Kit (envoi à Google) : désactivées. -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="remove" />
+        <service
+            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+            tools:node="remove" />
+        <receiver
+            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+            tools:node="remove" />
     </application>
 </manifest>

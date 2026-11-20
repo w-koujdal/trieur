@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTP simple autorisé : il ne sert qu'entre tes appareils du réseau local (le code refuse
+  toute adresse publique). Les échanges sont protégés par le jeton d'appairage.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
