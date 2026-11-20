@@ -11,6 +11,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.ScreenshotDao
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
@@ -23,8 +25,15 @@ class ScreenshotScanner(
 
     private data class MediaItem(val id: Long, val uri: Uri, val name: String, val dateTaken: Long)
 
+    // L'appli et le worker d'arrière-plan partagent ce scanner : un seul scan à la fois.
+    private val mutex = Mutex()
+
     /** Renvoie le nombre de nouvelles captures indexées. */
-    suspend fun scan(onProgress: (done: Int, total: Int) -> Unit): Int = withContext(Dispatchers.IO) {
+    suspend fun scan(onProgress: (done: Int, total: Int) -> Unit): Int = mutex.withLock {
+        scanLocked(onProgress)
+    }
+
+    private suspend fun scanLocked(onProgress: (done: Int, total: Int) -> Unit): Int = withContext(Dispatchers.IO) {
         val onDevice = queryScreenshots()
         val indexed = dao.indexedIds().toSet()
 
