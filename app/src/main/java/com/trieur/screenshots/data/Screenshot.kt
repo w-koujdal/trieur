@@ -26,12 +26,17 @@ data class Screenshot(
     @ColumnInfo(defaultValue = "SCREENSHOT") val source: String = Source.SCREENSHOT.name,
     /** Dossier MediaStore (RELATIVE_PATH), ex. « DCIM/Camera/ ». */
     val folder: String? = null,
+    /** Étiquettes d'image encodées par [Labels.encode] ; null = pas encore analysée, "" = rien trouvé. */
+    val labels: String? = null,
+    /** Mots cherchables tirés des étiquettes (français et anglais), indexés avec le texte. */
+    val tags: String? = null,
 )
 
 /**
  * Index plein texte adossé à [Screenshot] : Room crée les triggers qui le tiennent à jour.
- * unicode61 ignore les accents ("ecole" trouve "École").
+ * unicode61 ignore les accents ("ecole" trouve "École"). [tags] rend les photos cherchables
+ * par ce qu'elles montrent (« chien », « plage »).
  */
 @Fts4(contentEntity = Screenshot::class, tokenizer = FtsOptions.TOKENIZER_UNICODE61)
 @Entity(tableName = "screenshots_fts")
-data class ScreenshotFts(val text: String)
+data class ScreenshotFts(val text: String, val tags: String?)

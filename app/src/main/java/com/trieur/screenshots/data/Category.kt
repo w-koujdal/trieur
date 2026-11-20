@@ -10,6 +10,10 @@ enum class Category(val label: String) {
     CONVERSATION("Conversations"),
     SOCIAL("Réseaux sociaux"),
     WEB("Web"),
+    PEOPLE("Personnes"),
+    ANIMAL("Animaux"),
+    FOOD("Nourriture"),
+    NATURE("Nature"),
     PHOTO("Photos"),
     NO_TEXT("Sans texte"),
     OTHER("Autres");

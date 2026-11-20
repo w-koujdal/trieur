@@ -46,6 +46,13 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        // Code natif ML Kit (~21 Mo) compressé dans l'APK : fichier à télécharger ~2× plus léger
+        // pour une appli distribuée hors Play Store. Android le décompresse à l'installation.
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 ksp {
@@ -71,6 +78,8 @@ dependencies {
 
     // OCR bundled (modèle embarqué dans l'APK, fonctionne hors ligne)
     implementation(libs.mlkit.text.recognition)
+    // Étiquetage d'images bundled (hors ligne, gratuit) : trier les photos par contenu
+    implementation(libs.mlkit.image.labeling)
     implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.coil.compose)

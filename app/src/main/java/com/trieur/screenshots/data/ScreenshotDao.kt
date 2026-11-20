@@ -15,8 +15,10 @@ data class ClassificationInput(
     val text: String,
     val source: String,
     val folder: String?,
+    val labels: String?,
 )
 data class HashInput(val mediaId: Long, val uri: String)
+data class LabelInput(val mediaId: Long, val uri: String)
 
 /** Tous les filtres sont facultatifs : null = pas de filtre. */
 @Dao
@@ -74,18 +76,34 @@ interface ScreenshotDao {
     @Query("SELECT mediaId FROM screenshots")
     suspend fun indexedIds(): List<Long>
 
-    @Query("SELECT mediaId, displayName, text, source, folder FROM screenshots")
+    @Query("SELECT mediaId, displayName, text, source, folder, labels FROM screenshots")
     suspend fun classificationInputs(): List<ClassificationInput>
 
     /** Reclassement automatique : ne touche pas à la catégorie si elle a été choisie à la main. */
     @Query(
         """
-        UPDATE screenshots SET sourceApp = :sourceApp,
+        UPDATE screenshots SET sourceApp = :sourceApp, tags = :tags,
           category = CASE WHEN categoryLocked THEN category ELSE :category END
         WHERE mediaId = :mediaId
         """
     )
-    suspend fun updateClassification(mediaId: Long, sourceApp: String?, category: String)
+    suspend fun updateClassification(mediaId: Long, sourceApp: String?, category: String, tags: String?)
+
+    /** Images (hors captures) pas encore passées à l'étiquetage. */
+    @Query("SELECT mediaId, uri FROM screenshots WHERE labels IS NULL AND source != 'SCREENSHOT'")
+    suspend fun missingLabels(): List<LabelInput>
+
+    @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
+    suspend fun get(mediaId: Long): Screenshot?
+
+    @Query(
+        """
+        UPDATE screenshots SET labels = :labels, tags = :tags,
+          category = CASE WHEN categoryLocked THEN category ELSE :category END
+        WHERE mediaId = :mediaId
+        """
+    )
+    suspend fun setLabels(mediaId: Long, labels: String, tags: String, category: String)
 
     /** [locked] = true pour un choix manuel, false pour revenir au classement automatique. */
     @Query("UPDATE screenshots SET category = :category, categoryLocked = :locked WHERE mediaId = :mediaId")

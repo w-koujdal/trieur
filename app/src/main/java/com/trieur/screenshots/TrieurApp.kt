@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import com.trieur.screenshots.data.AppDatabase
 import com.trieur.screenshots.data.Classifier
+import com.trieur.screenshots.data.Labels
 import com.trieur.screenshots.data.Source
 import com.trieur.screenshots.scan.IndexJobService
 import com.trieur.screenshots.scan.ScreenshotScanner
@@ -24,7 +25,12 @@ class TrieurApp : Application() {
 
     val database: AppDatabase by lazy {
         Room.databaseBuilder(this, AppDatabase::class.java, "trieur.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+            )
             .build()
     }
 
@@ -66,8 +72,11 @@ class TrieurApp : Application() {
             database.withTransaction {
                 for (s in inputs) {
                     val app = Classifier.sourceApp(s.displayName, s.folder)
-                    val category = Classifier.classify(s.text, app, Source.fromName(s.source))
-                    dao.updateClassification(s.mediaId, app, category.name)
+                    val labels = Labels.decode(s.labels)
+                    val category = Classifier.classify(s.text, app, Source.fromName(s.source), labels)
+                    // Les mots cherchables suivent la table de traduction, qui peut avoir changé.
+                    val tags = s.labels?.let { Labels.searchTags(labels) }
+                    dao.updateClassification(s.mediaId, app, category.name, tags)
                     tally.merge(category.name, 1, Int::plus)
                 }
             }

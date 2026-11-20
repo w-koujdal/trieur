@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.trieur.screenshots.data.Category
 import com.trieur.screenshots.data.Detected
+import com.trieur.screenshots.data.Labels
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.Source
 import com.trieur.screenshots.data.detect
@@ -102,6 +103,14 @@ fun DetailSheet(
             Text(shot.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
             CategoryPicker(shot, onCategoryChange, Modifier.padding(top = 8.dp))
+            val seen = remember(shot.labels) { Labels.display(Labels.decode(shot.labels)).take(6) }
+            if (seen.isNotEmpty()) {
+                Text(
+                    "Sur l'image : " + seen.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
 
             // Actions en haut : toujours visibles, même panneau à moitié ouvert et texte long.
             Row(

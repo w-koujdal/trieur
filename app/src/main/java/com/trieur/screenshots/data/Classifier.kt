@@ -8,7 +8,7 @@ package com.trieur.screenshots.data
  * au prochain démarrage.
  */
 object Classifier {
-    const val VERSION = 3
+    const val VERSION = 5
 
     /** Au-delà, une photo ou une image téléchargée est surtout du texte : un document. */
     private const val DOCUMENT_MIN_LETTERS = 200
@@ -26,20 +26,33 @@ object Classifier {
         return FOLDER_APPS.firstOrNull { (key, _) -> f.contains(key) }?.second
     }
 
-    fun classify(text: String, sourceApp: String?, source: Source = Source.SCREENSHOT): Category {
+    /**
+     * [labels] : ce que montre l'image (ML Kit Image Labeling), utilisé pour les photos et images
+     * enregistrées quand le texte ne suffit pas à décider. Ignoré pour les captures d'écran.
+     */
+    fun classify(
+        text: String,
+        sourceApp: String?,
+        source: Source = Source.SCREENSHOT,
+        labels: List<Labels.Label> = emptyList(),
+    ): Category {
         val t = foldText(text)
         val app = sourceApp?.let(::foldText)
         val letters = t.count { it.isLetter() }
+        val isPhoto = source != Source.SCREENSHOT
 
-        if (letters < 4) return if (source == Source.SCREENSHOT) Category.NO_TEXT else Category.PHOTO
+        if (letters < 4) {
+            return if (isPhoto) Labels.categoryFor(labels) ?: Category.PHOTO else Category.NO_TEXT
+        }
         if (isPurchase(t)) return Category.PURCHASE
         if (isTravel(t)) return Category.TRAVEL
         if (isCode(t)) return Category.CODE
         if (app != null && MAPS_APPS.any { app.contains(it) } || STREET.containsMatchIn(t)) return Category.PLACE
         // L'appli d'origine ne dit quelque chose du contenu que pour une capture : une photo reçue
         // sur WhatsApp n'est pas une conversation.
-        if (source != Source.SCREENSHOT) {
-            return if (letters >= DOCUMENT_MIN_LETTERS) Category.DOCUMENT else Category.OTHER
+        if (isPhoto) {
+            if (letters >= DOCUMENT_MIN_LETTERS) return Category.DOCUMENT
+            return Labels.categoryFor(labels) ?: Category.OTHER
         }
         if (app != null) {
             if (MESSAGING_APPS.any { app.contains(it) }) return Category.CONVERSATION

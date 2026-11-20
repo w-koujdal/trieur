@@ -7,6 +7,7 @@ import com.trieur.screenshots.TrieurApp
 import com.trieur.screenshots.data.AppCount
 import com.trieur.screenshots.data.Category
 import com.trieur.screenshots.data.Classifier
+import com.trieur.screenshots.data.Labels
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.Source
 import com.trieur.screenshots.data.Suggestion
@@ -170,7 +171,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setCategory(shot: Screenshot, category: Category?) {
         viewModelScope.launch {
             if (category == null) {
-                val auto = Classifier.classify(shot.text, shot.sourceApp, Source.fromName(shot.source))
+                val auto = Classifier.classify(shot.text, shot.sourceApp, Source.fromName(shot.source), Labels.decode(shot.labels))
                 dao.setCategory(shot.mediaId, auto.name, locked = false)
             } else {
                 dao.setCategory(shot.mediaId, category.name, locked = true)

@@ -8,9 +8,12 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.label.ImageLabeling
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.trieur.screenshots.data.Classifier
+import com.trieur.screenshots.data.Labels
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.ScreenshotDao
 import com.trieur.screenshots.data.Source
@@ -32,6 +35,9 @@ class ScreenshotScanner(
     private val enabledSources: () -> Set<Source>,
 ) {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val labeler = ImageLabeling.getClient(
+        ImageLabelerOptions.Builder().setConfidenceThreshold(Labels.KEEP_MIN_CONFIDENCE).build()
+    )
 
     private data class MediaItem(
         val id: Long,
@@ -63,7 +69,7 @@ class ScreenshotScanner(
         val todo = onDevice.filter { it.id !in indexed }
         onProgress(0, todo.size)
         todo.forEachIndexed { i, item ->
-            val text = recognize(item)
+            val (text, labels) = analyze(item)
             val sourceApp = Classifier.sourceApp(item.name, item.folder)
             dao.insert(
                 Screenshot(
@@ -73,10 +79,12 @@ class ScreenshotScanner(
                     dateTaken = item.dateTaken,
                     text = text,
                     sourceApp = sourceApp,
-                    category = Classifier.classify(text, sourceApp, item.source).name,
+                    category = Classifier.classify(text, sourceApp, item.source, labels.orEmpty()).name,
                     dhash = ImageHash.compute(context, item.uri),
                     source = item.source.name,
                     folder = item.folder,
+                    labels = labels?.let(Labels::encode),
+                    tags = labels?.let(Labels::searchTags),
                 )
             )
             onProgress(i + 1, todo.size)
@@ -86,31 +94,51 @@ class ScreenshotScanner(
         dao.missingHashes().forEach { h ->
             ImageHash.compute(context, Uri.parse(h.uri))?.let { dao.setHash(h.mediaId, it) }
         }
+
+        // Rattrapage de l'étiquetage (photos indexées avant son introduction) : image réduite, ~50 ms.
+        dao.missingLabels().forEach { m ->
+            val labels = try {
+                val bitmap = loadScaled(Uri.parse(m.uri), MAX_LABEL_SIDE)
+                try { label(bitmap) } finally { bitmap.recycle() }
+            } catch (e: Exception) {
+                Log.w(TAG, "Étiquetage impossible pour ${m.mediaId}", e)
+                emptyList()
+            }
+            val row = dao.get(m.mediaId) ?: return@forEach
+            val category = Classifier.classify(row.text, row.sourceApp, Source.fromName(row.source), labels)
+            dao.setLabels(m.mediaId, Labels.encode(labels), Labels.searchTags(labels), category.name)
+        }
         todo.size
     }
 
-    private suspend fun recognize(item: MediaItem): String = try {
-        val bitmap = loadForOcr(item.uri)
+    /** Texte (OCR) et, hors captures d'écran, étiquettes de ce que montre l'image. */
+    private suspend fun analyze(item: MediaItem): Pair<String, List<Labels.Label>?> = try {
+        val bitmap = loadScaled(item.uri, MAX_OCR_SIDE)
         try {
-            recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text
+            val text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text
+            val labels = if (item.source == Source.SCREENSHOT) null else label(bitmap)
+            text to labels
         } finally {
             bitmap.recycle()
         }
     } catch (e: Exception) {
-        Log.w(TAG, "OCR impossible pour ${item.name}", e)
-        ""
+        Log.w(TAG, "Analyse impossible pour ${item.name}", e)
+        "" to if (item.source == Source.SCREENSHOT) null else emptyList()
     }
 
+    private suspend fun label(bitmap: Bitmap): List<Labels.Label> =
+        labeler.process(InputImage.fromBitmap(bitmap, 0)).await().map { Labels.Label(it.text, it.confidence) }
+
     /**
-     * Image réduite pour l'OCR : une photo de 50 Mpx décodée en entier ferait ~200 Mo en mémoire.
+     * Image réduite : une photo de 50 Mpx décodée en entier ferait ~200 Mo en mémoire.
      * ImageDecoder applique l'orientation EXIF, donc le texte d'une photo prise en portrait est droit.
      */
-    private fun loadForOcr(uri: Uri): Bitmap =
+    private fun loadScaled(uri: Uri, maxSide: Int): Bitmap =
         ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             val longest = max(info.size.width, info.size.height)
-            if (longest > MAX_OCR_SIDE) {
-                val scale = MAX_OCR_SIDE.toFloat() / longest
+            if (longest > maxSide) {
+                val scale = maxSide.toFloat() / longest
                 decoder.setTargetSize((info.size.width * scale).roundToInt(), (info.size.height * scale).roundToInt())
             }
         }
@@ -153,5 +181,6 @@ class ScreenshotScanner(
     private companion object {
         const val TAG = "ScreenshotScanner"
         const val MAX_OCR_SIDE = 2560
+        const val MAX_LABEL_SIDE = 640
     }
 }
