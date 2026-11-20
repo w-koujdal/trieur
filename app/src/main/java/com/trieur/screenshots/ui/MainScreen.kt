@@ -73,6 +73,11 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val results by vm.results.collectAsStateWithLifecycle()
     val indexed by vm.indexedCount.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
+    val category by vm.category.collectAsStateWithLifecycle()
+    val app by vm.app.collectAsStateWithLifecycle()
+    val categoryCounts by vm.categoryCounts.collectAsStateWithLifecycle()
+    val appCounts by vm.appCounts.collectAsStateWithLifecycle()
+    val filtering = query.isNotBlank() || category != null || app != null
     var hasAccess by remember { mutableStateOf(hasMediaAccess(context)) }
     var selected by remember { mutableStateOf<Screenshot?>(null) }
 
@@ -125,7 +130,17 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 singleLine = true,
             )
 
-            StatusLine(scan = scan, indexed = indexed, resultCount = results.size, query = query)
+            FilterBar(
+                categories = categoryCounts,
+                selectedCategory = category,
+                onCategoryClick = vm::toggleCategory,
+                apps = appCounts,
+                selectedApp = app,
+                onAppSelected = vm::selectApp,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+
+            StatusLine(scan = scan, indexed = indexed, resultCount = results.size, filtering = filtering)
 
             when {
                 !hasAccess -> CenteredMessage(
@@ -133,7 +148,10 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     action = "Autoriser l'accès",
                     onAction = ::scanOrAsk,
                 )
-                results.isEmpty() && query.isNotBlank() -> CenteredMessage("Aucune capture ne contient « $query ».")
+                results.isEmpty() && filtering -> CenteredMessage(
+                    if (query.isNotBlank()) "Aucune capture ne contient « $query » avec ces filtres."
+                    else "Aucune capture avec ces filtres."
+                )
                 results.isEmpty() && !scan.running -> CenteredMessage(
                     "Aucune capture indexée pour l'instant.",
                     action = "Scanner",
@@ -206,7 +224,7 @@ private fun OcrTextSheet(shot: Screenshot, query: String, onOpen: () -> Unit, on
 }
 
 @Composable
-private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, query: String) {
+private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, filtering: Boolean) {
     Column(Modifier.padding(horizontal = 16.dp)) {
         when {
             scan.running && scan.total > 0 -> {
@@ -227,7 +245,7 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, query: S
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
-            query.isNotBlank() -> Text(
+            filtering -> Text(
                 "$resultCount résultat(s) sur $indexed captures",
                 style = MaterialTheme.typography.bodySmall,
             )

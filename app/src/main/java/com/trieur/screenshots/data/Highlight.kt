@@ -12,8 +12,8 @@ fun searchTokens(input: String): List<String> =
  */
 fun findHighlights(text: String, tokens: List<String>): List<IntRange> {
     if (tokens.isEmpty() || text.isEmpty()) return emptyList()
-    val folded = fold(text)
-    val prefixes = tokens.map(::fold)
+    val folded = foldText(text)
+    val prefixes = tokens.map(::foldText)
     val ranges = mutableListOf<IntRange>()
     var i = 0
     while (i < folded.length) {
@@ -28,7 +28,7 @@ fun findHighlights(text: String, tokens: List<String>): List<IntRange> {
 }
 
 /** Minuscules sans accents, caractère par caractère, pour garder les mêmes indices que le texte d'origine. */
-private fun fold(s: String): String = buildString(s.length) {
+internal fun foldText(s: String): String = buildString(s.length) {
     for (c in s) {
         val base = Normalizer.normalize(c.toString(), Normalizer.Form.NFD).firstOrNull() ?: c
         append(base.lowercaseChar())

@@ -6,27 +6,58 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+data class CategoryCount(val category: String, val count: Int)
+data class AppCount(val sourceApp: String, val count: Int)
+data class ClassificationInput(val mediaId: Long, val displayName: String, val text: String)
+
 @Dao
 interface ScreenshotDao {
 
-    @Query("SELECT * FROM screenshots ORDER BY dateTaken DESC")
-    fun all(): Flow<List<Screenshot>>
+    /** Filtres facultatifs : null = pas de filtre. */
+    @Query(
+        """
+        SELECT * FROM screenshots
+        WHERE (:category IS NULL OR category = :category)
+          AND (:app IS NULL OR sourceApp = :app)
+        ORDER BY dateTaken DESC
+        """
+    )
+    fun filtered(category: String?, app: String?): Flow<List<Screenshot>>
 
     @Query(
         """
         SELECT screenshots.* FROM screenshots
         JOIN screenshots_fts ON screenshots.mediaId = screenshots_fts.rowid
         WHERE screenshots_fts MATCH :ftsQuery
+          AND (:category IS NULL OR screenshots.category = :category)
+          AND (:app IS NULL OR screenshots.sourceApp = :app)
         ORDER BY screenshots.dateTaken DESC
         """
     )
-    fun search(ftsQuery: String): Flow<List<Screenshot>>
+    fun search(ftsQuery: String, category: String?, app: String?): Flow<List<Screenshot>>
 
     @Query("SELECT COUNT(*) FROM screenshots")
     fun count(): Flow<Int>
 
+    @Query("SELECT category, COUNT(*) AS count FROM screenshots GROUP BY category")
+    fun categoryCounts(): Flow<List<CategoryCount>>
+
+    @Query(
+        """
+        SELECT sourceApp, COUNT(*) AS count FROM screenshots
+        WHERE sourceApp IS NOT NULL GROUP BY sourceApp ORDER BY count DESC, sourceApp
+        """
+    )
+    fun appCounts(): Flow<List<AppCount>>
+
     @Query("SELECT mediaId FROM screenshots")
     suspend fun indexedIds(): List<Long>
+
+    @Query("SELECT mediaId, displayName, text FROM screenshots")
+    suspend fun classificationInputs(): List<ClassificationInput>
+
+    @Query("UPDATE screenshots SET sourceApp = :sourceApp, category = :category WHERE mediaId = :mediaId")
+    suspend fun updateClassification(mediaId: Long, sourceApp: String?, category: String)
 
     // IGNORE plutôt que REPLACE : REPLACE ne déclencherait pas le trigger de suppression FTS.
     @Insert(onConflict = OnConflictStrategy.IGNORE)

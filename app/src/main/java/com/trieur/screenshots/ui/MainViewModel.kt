@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.trieur.screenshots.TrieurApp
+import com.trieur.screenshots.data.AppCount
+import com.trieur.screenshots.data.Category
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.toFtsQuery
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,8 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,19 +39,47 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    val results: StateFlow<List<Screenshot>> = _query
-        .debounce(200)
-        .flatMapLatest { q -> toFtsQuery(q)?.let(dao::search) ?: dao.all() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _category = MutableStateFlow<Category?>(null)
+    val category: StateFlow<Category?> = _category.asStateFlow()
+
+    private val _app = MutableStateFlow<String?>(null)
+    val app: StateFlow<String?> = _app.asStateFlow()
+
+    val results: StateFlow<List<Screenshot>> =
+        combine(_query.debounce(200), _category, _app) { q, c, a -> Triple(q, c?.name, a) }
+            .flatMapLatest { (q, c, a) ->
+                toFtsQuery(q)?.let { dao.search(it, c, a) } ?: dao.filtered(c, a)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val indexedCount: StateFlow<Int> = dao.count()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Nombre de captures par catégorie, dans l'ordre d'affichage, sans les catégories vides. */
+    val categoryCounts: StateFlow<List<Pair<Category, Int>>> = dao.categoryCounts()
+        .map { rows ->
+            val byName = rows.associate { it.category to it.count }
+            Category.entries.mapNotNull { c -> byName[c.name]?.let { c to it } }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val appCounts: StateFlow<List<AppCount>> = dao.appCounts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _scan = MutableStateFlow(ScanState())
     val scan: StateFlow<ScanState> = _scan.asStateFlow()
 
     fun onQueryChange(value: String) {
         _query.value = value
+    }
+
+    /** Re-toucher la catégorie active la désélectionne. */
+    fun toggleCategory(value: Category) {
+        _category.update { if (it == value) null else value }
+    }
+
+    fun selectApp(value: String?) {
+        _app.value = value
     }
 
     fun startScan() {

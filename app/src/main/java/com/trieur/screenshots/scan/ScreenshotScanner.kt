@@ -8,6 +8,7 @@ import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.trieur.screenshots.data.Classifier
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.ScreenshotDao
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +51,7 @@ class ScreenshotScanner(
                 Log.w(TAG, "OCR impossible pour ${item.name}", e)
                 ""
             }
+            val sourceApp = Classifier.sourceApp(item.name)
             dao.insert(
                 Screenshot(
                     mediaId = item.id,
@@ -57,6 +59,8 @@ class ScreenshotScanner(
                     displayName = item.name,
                     dateTaken = item.dateTaken,
                     text = text,
+                    sourceApp = sourceApp,
+                    category = Classifier.classify(text, sourceApp).name,
                 )
             )
             onProgress(i + 1, todo.size)

@@ -1,5 +1,6 @@
 package com.trieur.screenshots.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Fts4
 import androidx.room.FtsOptions
@@ -13,6 +14,10 @@ data class Screenshot(
     val displayName: String,
     val dateTaken: Long,
     val text: String,
+    /** Appli d'origine lue dans le nom du fichier (Samsung), null si inconnue. */
+    val sourceApp: String? = null,
+    /** Nom d'une [Category]. */
+    @ColumnInfo(defaultValue = "OTHER") val category: String = Category.OTHER.name,
 )
 
 /**
