@@ -115,3 +115,19 @@ Une relecture de code (agent dédié) a trouvé puis fait corriger, chaque corre
 - L'OCR est optimisé pour l'alphabet latin.
 - Si l'appli est « forcée à l'arrêt » ou mise en veille profonde par Samsung, l'indexation en
   arrière-plan s'arrête jusqu'à la prochaine ouverture.
+
+## Mes appareils (même Wi-Fi)
+
+Le Trieur cherche aussi dans ton PC, et ton PC cherche dans ton téléphone, avec **Trieur PC**
+(projet `trieur-pc`, à côté de celui-ci). Tout passe par le réseau local :
+
+- **Découverte** : message UDP « TRIEUR-DISCOVER 1 » diffusé sur le port 47130, réponse JSON.
+- **Appairage** une fois, avec le code à 6 chiffres affiché par l'autre appareil (usage unique,
+  5 essais par minute au plus) : chaque appareil reçoit un jeton pour interroger l'autre.
+- **Recherche** `GET /api/search?q=…` et **fichier** `GET /api/file?id=…` sur le port 47131, avec
+  `Authorization: Bearer <jeton>`. Résultat : nom, chemin lisible (« PC › Documents › CV.pdf »),
+  extrait du texte.
+- Seules les adresses privées (192.168.x, 10.x, 172.16-31.x) sont contactées ou acceptées.
+- Côté téléphone, le serveur ne tourne que si « Visible sur le Wi-Fi » est allumé (notification).
+- La permission Internet sert à ce réseau local ; l'envoi de statistiques de ML Kit est retiré
+  du manifeste.
