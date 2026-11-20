@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.trieur.screenshots.data.Category
 import com.trieur.screenshots.data.Detected
 import com.trieur.screenshots.data.Screenshot
+import com.trieur.screenshots.data.Source
 import com.trieur.screenshots.data.detect
 import com.trieur.screenshots.data.findHighlights
 import com.trieur.screenshots.data.searchTokens
@@ -86,7 +87,8 @@ fun DetailSheet(
     val detected = remember(shot.text) { detect(shot.text) }
     val subtitle = remember(shot) {
         val date = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(shot.dateTaken))
-        listOfNotNull(shot.sourceApp, date).joinToString(" · ")
+        val where = Source.fromName(shot.source).label
+        listOfNotNull(where, shot.sourceApp, date).joinToString(" · ")
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {

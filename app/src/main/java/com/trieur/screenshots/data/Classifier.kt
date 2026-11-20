@@ -8,22 +8,38 @@ package com.trieur.screenshots.data
  * au prochain démarrage.
  */
 object Classifier {
-    const val VERSION = 1
+    const val VERSION = 2
 
-    /** « Screenshot_20261120_002436_WhatsApp.jpg » → « WhatsApp » (aussi « AISelect_… »). */
-    fun sourceApp(displayName: String): String? =
+    /** Au-delà, une photo ou une image téléchargée est surtout du texte : un document. */
+    private const val DOCUMENT_MIN_LETTERS = 200
+
+    /**
+     * Appli d'origine : d'abord le nom de fichier Samsung (« Screenshot_20261120_002436_WhatsApp.jpg »
+     * → « WhatsApp », aussi « AISelect_… »), sinon le dossier (« Android/media/com.whatsapp/… »).
+     */
+    fun sourceApp(displayName: String, folder: String? = null): String? {
         Regex("""^[A-Za-z]+_\d{8}_\d{6}_(.+)\.\w+$""").find(displayName)
             ?.groupValues?.get(1)?.trim()?.ifEmpty { null }
+            ?.let { return it }
+        val f = folder?.lowercase() ?: return null
+        return FOLDER_APPS.firstOrNull { (key, _) -> f.contains(key) }?.second
+    }
 
-    fun classify(text: String, sourceApp: String?): Category {
+    fun classify(text: String, sourceApp: String?, source: Source = Source.SCREENSHOT): Category {
         val t = foldText(text)
         val app = sourceApp?.let(::foldText)
+        val letters = t.count { it.isLetter() }
 
-        if (t.count { it.isLetter() } < 4) return Category.NO_TEXT
+        if (letters < 4) return if (source == Source.SCREENSHOT) Category.NO_TEXT else Category.PHOTO
         if (isPurchase(t)) return Category.PURCHASE
         if (isTravel(t)) return Category.TRAVEL
         if (isCode(t)) return Category.CODE
         if (app != null && MAPS_APPS.any { app.contains(it) } || STREET.containsMatchIn(t)) return Category.PLACE
+        // L'appli d'origine ne dit quelque chose du contenu que pour une capture : une photo reçue
+        // sur WhatsApp n'est pas une conversation.
+        if (source != Source.SCREENSHOT) {
+            return if (letters >= DOCUMENT_MIN_LETTERS) Category.DOCUMENT else Category.OTHER
+        }
         if (app != null) {
             if (MESSAGING_APPS.any { app.contains(it) }) return Category.CONVERSATION
             if (app == "x" || SOCIAL_APPS.any { app.contains(it) }) return Category.SOCIAL
@@ -71,6 +87,22 @@ object Classifier {
 
     private val STREET = Regex(
         """(?<!\d)\d{1,4}(?:\s?(?:bis|ter))?,?\s+(?:rue|avenue|av\.|boulevard|bd|place|chemin|allee|impasse|route|quai|cours)\s"""
+    )
+
+    /** Fragment de dossier (en minuscules) → nom d'appli affiché. Le premier qui correspond gagne. */
+    private val FOLDER_APPS = listOf(
+        "whatsapp" to "WhatsApp",
+        "snapchat" to "Snapchat",
+        "instagram" to "Instagram",
+        "telegram" to "Telegram",
+        "messenger" to "Messenger",
+        "facebook" to "Facebook",
+        "pinterest" to "Pinterest",
+        "100pint" to "Pinterest",
+        "tiktok" to "TikTok",
+        "discord" to "Discord",
+        "pictures/messages" to "Messages",
+        "dcim/camera" to CAMERA_APP,
     )
 
     private val MAPS_APPS = listOf("maps", "waze", "plans", "citymapper")

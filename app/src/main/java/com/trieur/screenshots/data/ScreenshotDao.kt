@@ -8,22 +8,30 @@ import kotlinx.coroutines.flow.Flow
 
 data class CategoryCount(val category: String, val count: Int)
 data class AppCount(val sourceApp: String, val count: Int)
-data class ClassificationInput(val mediaId: Long, val displayName: String, val text: String)
+data class SourceCount(val source: String, val count: Int)
+data class ClassificationInput(
+    val mediaId: Long,
+    val displayName: String,
+    val text: String,
+    val source: String,
+    val folder: String?,
+)
 data class HashInput(val mediaId: Long, val uri: String)
 
+/** Tous les filtres sont facultatifs : null = pas de filtre. */
 @Dao
 interface ScreenshotDao {
 
-    /** Filtres facultatifs : null = pas de filtre. */
     @Query(
         """
         SELECT * FROM screenshots
         WHERE (:category IS NULL OR category = :category)
           AND (:app IS NULL OR sourceApp = :app)
+          AND (:source IS NULL OR source = :source)
         ORDER BY dateTaken DESC
         """
     )
-    fun filtered(category: String?, app: String?): Flow<List<Screenshot>>
+    fun filtered(category: String?, app: String?, source: String?): Flow<List<Screenshot>>
 
     @Query(
         """
@@ -32,35 +40,41 @@ interface ScreenshotDao {
         WHERE screenshots_fts MATCH :ftsQuery
           AND (:category IS NULL OR screenshots.category = :category)
           AND (:app IS NULL OR screenshots.sourceApp = :app)
+          AND (:source IS NULL OR screenshots.source = :source)
         ORDER BY screenshots.dateTaken DESC
         """
     )
-    fun search(ftsQuery: String, category: String?, app: String?): Flow<List<Screenshot>>
+    fun search(ftsQuery: String, category: String?, app: String?, source: String?): Flow<List<Screenshot>>
 
     @Query("SELECT COUNT(*) FROM screenshots")
     fun count(): Flow<Int>
 
-    /** Compteurs par catégorie, limités à l'appli [app] si elle est choisie. */
+    /** Compteurs par catégorie, limités à l'appli et à la source choisies. */
     @Query(
         """
         SELECT category, COUNT(*) AS count FROM screenshots
-        WHERE (:app IS NULL OR sourceApp = :app) GROUP BY category
+        WHERE (:app IS NULL OR sourceApp = :app) AND (:source IS NULL OR source = :source)
+        GROUP BY category
         """
     )
-    fun categoryCounts(app: String?): Flow<List<CategoryCount>>
+    fun categoryCounts(app: String?, source: String?): Flow<List<CategoryCount>>
 
     @Query(
         """
         SELECT sourceApp, COUNT(*) AS count FROM screenshots
-        WHERE sourceApp IS NOT NULL GROUP BY sourceApp ORDER BY count DESC, sourceApp
+        WHERE sourceApp IS NOT NULL AND (:source IS NULL OR source = :source)
+        GROUP BY sourceApp ORDER BY count DESC, sourceApp
         """
     )
-    fun appCounts(): Flow<List<AppCount>>
+    fun appCounts(source: String?): Flow<List<AppCount>>
+
+    @Query("SELECT source, COUNT(*) AS count FROM screenshots GROUP BY source")
+    fun sourceCounts(): Flow<List<SourceCount>>
 
     @Query("SELECT mediaId FROM screenshots")
     suspend fun indexedIds(): List<Long>
 
-    @Query("SELECT mediaId, displayName, text FROM screenshots")
+    @Query("SELECT mediaId, displayName, text, source, folder FROM screenshots")
     suspend fun classificationInputs(): List<ClassificationInput>
 
     /** Reclassement automatique : ne touche pas à la catégorie si elle a été choisie à la main. */

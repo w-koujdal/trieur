@@ -22,6 +22,10 @@ data class Screenshot(
     @ColumnInfo(defaultValue = "0") val categoryLocked: Boolean = false,
     /** Empreinte visuelle (dHash 64 bits) pour repérer les doublons ; null tant qu'elle n'est pas calculée. */
     val dhash: Long? = null,
+    /** Nom d'une [Source]. */
+    @ColumnInfo(defaultValue = "SCREENSHOT") val source: String = Source.SCREENSHOT.name,
+    /** Dossier MediaStore (RELATIVE_PATH), ex. « DCIM/Camera/ ». */
+    val folder: String? = null,
 )
 
 /**

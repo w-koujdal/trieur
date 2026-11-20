@@ -7,6 +7,9 @@ data class Suggestion(val key: String, val title: String, val detail: String, va
 
 private val DAY = TimeUnit.DAYS.toMillis(1)
 
+/** Nom donné par [Classifier.sourceApp] au dossier DCIM/Camera. */
+const val CAMERA_APP = "Appareil photo"
+
 /**
  * Propositions de nettoyage, de la plus évidente à la moins évidente :
  * codes de vérification périmés, doublons (on garde le plus récent), vieilles captures par appli,
@@ -25,7 +28,8 @@ fun cleanupSuggestions(all: List<Screenshot>, now: Long, minPerApp: Int = 5): Li
         out += Suggestion("doublons", "Doublons", "${extraCopies.size} copie(s) en trop, la plus récente est gardée", extraCopies.ids())
     }
 
-    candidates.filter { it.sourceApp != null && now - it.dateTaken > 90 * DAY }
+    // Jamais les photos de l'appareil photo : ce sont des souvenirs, pas du désordre.
+    candidates.filter { it.sourceApp != null && it.sourceApp != CAMERA_APP && now - it.dateTaken > 90 * DAY }
         .groupBy { it.sourceApp!! }
         .filterValues { it.size >= minPerApp }
         .entries.sortedByDescending { it.value.size }

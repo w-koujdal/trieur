@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.trieur.screenshots.data.AppCount
 import com.trieur.screenshots.data.Category
+import com.trieur.screenshots.data.Source
 
 /** Filtre par appli d'origine (menu déroulant) suivi des catégories non vides. */
 @Composable
@@ -37,6 +38,9 @@ fun FilterBar(
     onAppSelected: (String?) -> Unit,
     cleanupLabel: String?,
     onClearCleanup: () -> Unit,
+    sources: List<Pair<Source, Int>>,
+    selectedSource: Source?,
+    onSourceSelected: (Source?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Une puce ajoutée en tête (lot de nettoyage) resterait hors de l'écran à gauche : on revient au début.
@@ -58,8 +62,28 @@ fun FilterBar(
                 )
             }
         }
+        // Le filtre de source n'a de sens qu'avec plusieurs sources indexées.
+        if (sources.size > 1 || selectedSource != null) {
+            item(key = "sources") {
+                MenuChip(
+                    label = selectedSource?.label ?: "Tout",
+                    selected = selectedSource != null,
+                    allLabel = "Toutes les sources",
+                    entries = sources.map { (s, n) -> s to "${s.label} · $n" },
+                    onSelected = onSourceSelected,
+                )
+            }
+        }
         if (apps.isNotEmpty()) {
-            item(key = "apps") { AppFilterChip(apps, selectedApp, onAppSelected) }
+            item(key = "apps") {
+                MenuChip(
+                    label = selectedApp ?: "Appli",
+                    selected = selectedApp != null,
+                    allLabel = "Toutes les applis",
+                    entries = apps.map { it.sourceApp to "${it.sourceApp} · ${it.count}" },
+                    onSelected = onAppSelected,
+                )
+            }
         }
         // La catégorie active reste affichée (à 0) même si l'appli choisie n'en a aucune,
         // sinon on ne pourrait plus la désélectionner.
@@ -78,25 +102,32 @@ fun FilterBar(
     }
 }
 
+/** Puce avec menu déroulant : une entrée « tout » (null) puis une par valeur. */
 @Composable
-private fun AppFilterChip(apps: List<AppCount>, selectedApp: String?, onAppSelected: (String?) -> Unit) {
+private fun <T> MenuChip(
+    label: String,
+    selected: Boolean,
+    allLabel: String,
+    entries: List<Pair<T, String>>,
+    onSelected: (T?) -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         FilterChip(
-            selected = selectedApp != null,
+            selected = selected,
             onClick = { open = true },
-            label = { Text(selectedApp ?: "Appli") },
+            label = { Text(label) },
             trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text("Toutes les applis") },
-                onClick = { onAppSelected(null); open = false },
+                text = { Text(allLabel) },
+                onClick = { onSelected(null); open = false },
             )
-            apps.forEach { app ->
+            entries.forEach { (value, text) ->
                 DropdownMenuItem(
-                    text = { Text("${app.sourceApp} · ${app.count}") },
-                    onClick = { onAppSelected(app.sourceApp); open = false },
+                    text = { Text(text) },
+                    onClick = { onSelected(value); open = false },
                 )
             }
         }

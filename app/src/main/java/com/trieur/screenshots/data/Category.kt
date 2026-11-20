@@ -6,9 +6,11 @@ enum class Category(val label: String) {
     TRAVEL("Voyages"),
     CODE("Codes"),
     PLACE("Lieux"),
+    DOCUMENT("Documents"),
     CONVERSATION("Conversations"),
     SOCIAL("Réseaux sociaux"),
     WEB("Web"),
+    PHOTO("Photos"),
     NO_TEXT("Sans texte"),
     OTHER("Autres");
 

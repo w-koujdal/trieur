@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Screenshot::class, ScreenshotFts::class], version = 3)
+@Database(entities = [Screenshot::class, ScreenshotFts::class], version = 4)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun screenshotDao(): ScreenshotDao
 
@@ -23,6 +23,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE screenshots ADD COLUMN categoryLocked INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE screenshots ADD COLUMN dhash INTEGER")
+            }
+        }
+
+        /** v4 : source (captures, téléchargements, galerie) et dossier. Tout ce qui existe déjà est une capture. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE screenshots ADD COLUMN source TEXT NOT NULL DEFAULT 'SCREENSHOT'")
+                db.execSQL("ALTER TABLE screenshots ADD COLUMN folder TEXT")
             }
         }
     }

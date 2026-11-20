@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,10 +64,14 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val app by vm.app.collectAsStateWithLifecycle()
     val categoryCounts by vm.categoryCounts.collectAsStateWithLifecycle()
     val appCounts by vm.appCounts.collectAsStateWithLifecycle()
+    val source by vm.source.collectAsStateWithLifecycle()
+    val sourceCounts by vm.sourceCounts.collectAsStateWithLifecycle()
+    val enabledSources by vm.enabledSources.collectAsStateWithLifecycle()
+    var showSettings by remember { mutableStateOf(false) }
     val selection by vm.selection.collectAsStateWithLifecycle()
     val selecting = selection.isNotEmpty()
     val cleanup by vm.cleanup.collectAsStateWithLifecycle()
-    val filtering = query.isNotBlank() || category != null || app != null || cleanup != null
+    val filtering = query.isNotBlank() || category != null || app != null || source != null || cleanup != null
     var hasAccess by remember { mutableStateOf(hasMediaAccess(context)) }
     val detail by vm.detail.collectAsStateWithLifecycle()
     val suggestions by vm.suggestions.collectAsStateWithLifecycle()
@@ -142,8 +147,11 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 )
             } else {
                 TopAppBar(
-                    title = { Text("Trieur de captures") },
+                    title = { Text("Trieur") },
                     actions = {
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Sources")
+                        }
                         IconButton(onClick = { showCleanup = true }) {
                             BadgedBox(badge = { if (suggestions.isNotEmpty()) Badge { Text("${suggestions.size}") } }) {
                                 Icon(Icons.Filled.Build, contentDescription = "Nettoyage")
@@ -189,6 +197,9 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 onAppSelected = vm::selectApp,
                 cleanupLabel = cleanup?.title,
                 onClearCleanup = vm::clearCleanup,
+                sources = sourceCounts,
+                selectedSource = source,
+                onSourceSelected = vm::selectSource,
                 modifier = Modifier.padding(bottom = 4.dp),
             )
 
@@ -214,7 +225,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     selection = selection,
                     onClick = { if (selecting) vm.toggleSelection(it.mediaId) else vm.openDetail(it.mediaId) },
                     onLongClick = { vm.toggleSelection(it.mediaId) },
-                    scrollResetKey = listOf(query, category, app, cleanup?.key),
+                    scrollResetKey = listOf(query, category, app, source, cleanup?.key),
                 )
             }
         }
@@ -228,6 +239,14 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             onDelete = { requestDelete(listOf(shot)) },
             onCategoryChange = { vm.setCategory(shot, it) },
             onDismiss = { vm.openDetail(null) },
+        )
+    }
+
+    if (showSettings) {
+        SettingsSheet(
+            enabled = enabledSources,
+            onToggle = vm::setSourceEnabled,
+            onDismiss = { showSettings = false },
         )
     }
 
@@ -263,10 +282,10 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, filterin
                 color = MaterialTheme.colorScheme.error,
             )
             filtering -> Text(
-                "$resultCount résultat(s) sur $indexed captures",
+                "$resultCount résultat(s) sur $indexed images",
                 style = MaterialTheme.typography.bodySmall,
             )
-            else -> Text("$indexed captures indexées", style = MaterialTheme.typography.bodySmall)
+            else -> Text("$indexed images indexées", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
