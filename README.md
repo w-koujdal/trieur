@@ -2,9 +2,18 @@
 
 Appli Android qui **retrouve n'importe quelle image par ce qu'elle contient** : captures d'écran,
 téléchargements, galerie et PDF. Le texte est lu (OCR) et les photos reconnues directement sur le
-téléphone. Gratuit, sans pub, sans compte, **sans accès à Internet**.
+téléphone. Gratuit, sans pub, sans compte : **rien n'est envoyé sur Internet**.
 
 > Né d'un fil Reddit : « je trie encore à la main ma galerie, mes captures et mes téléchargements ».
+
+## Installer
+
+1. Télécharger **`Trieur.apk`** dans la [dernière version](https://github.com/w-koujdal/trieur/releases/latest).
+2. L'ouvrir sur le téléphone (Android 10 ou plus récent) et autoriser l'installation.
+3. Optionnel : [**Trieur PC**](https://github.com/w-koujdal/trieur-pc) pour chercher dans le PC
+   depuis le téléphone, et inversement, sur le même Wi-Fi.
+
+Licence MIT.
 
 ## Ce que ça fait
 
