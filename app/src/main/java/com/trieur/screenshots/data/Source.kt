@@ -8,7 +8,13 @@ enum class Source(val label: String) {
     GALLERY("Galerie"),
 
     /** PDF des dossiers choisis dans les réglages (pas une source du MediaStore). */
-    PDF("PDF");
+    PDF("PDF"),
+
+    /** Autres documents de ces dossiers (Word, texte, tableurs…) : nom et texte quand il se lit. */
+    DOC("Documents");
+
+    /** Fichier lu dans un dossier choisi (et non une image du MediaStore). */
+    val isFile get() = this == PDF || this == DOC
 
     companion object {
         val DEFAULT_ENABLED = setOf(SCREENSHOT, DOWNLOAD)

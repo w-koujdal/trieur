@@ -135,7 +135,7 @@ interface ScreenshotDao {
     @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
     fun observe(mediaId: Long): Flow<Screenshot?>
 
-    @Query("SELECT mediaId, uri FROM screenshots WHERE dhash IS NULL AND source != 'PDF'")
+    @Query("SELECT mediaId, uri FROM screenshots WHERE dhash IS NULL AND source NOT IN ('PDF', 'DOC')")
     suspend fun missingHashes(): List<HashInput>
 
     @Query("UPDATE screenshots SET dhash = :hash WHERE mediaId = :mediaId")

@@ -108,14 +108,18 @@ private fun Thumbnail(
                 onLongClickLabel = "Sélectionner",
             ),
     ) {
-        AsyncImage(
-            model = thumbnailModel(LocalContext.current, shot),
-            contentDescription = shot.displayName,
-            // Page de document : toute la largeur, le haut de la page ; image : recadrée au centre.
-            contentScale = if (shot.source == Source.PDF.name) ContentScale.FillWidth else ContentScale.Crop,
-            alignment = if (shot.source == Source.PDF.name) Alignment.TopCenter else Alignment.Center,
-            modifier = Modifier.fillMaxSize(),
-        )
+        if (shot.source == Source.DOC.name) {
+            DocTile(shot)
+        } else {
+            AsyncImage(
+                model = thumbnailModel(LocalContext.current, shot),
+                contentDescription = shot.displayName,
+                // Page de document : toute la largeur, le haut de la page ; image : recadrée au centre.
+                contentScale = if (shot.source == Source.PDF.name) ContentScale.FillWidth else ContentScale.Crop,
+                alignment = if (shot.source == Source.PDF.name) Alignment.TopCenter else Alignment.Center,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         if (selected) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
         }
@@ -130,5 +134,32 @@ private fun Thumbnail(
                     .background(if (selected) Color.White else Color.Black.copy(alpha = 0.3f), CircleShape),
             )
         }
+    }
+}
+
+/** Document sans aperçu (Word, texte…) : son type en grand, et son nom. */
+@Composable
+private fun DocTile(shot: com.trieur.screenshots.data.Screenshot) {
+    val ext = shot.displayName.substringAfterLast('.', "").uppercase().take(5).ifEmpty { "DOC" }
+    val color = when (ext) {
+        "DOC", "DOCX", "ODT", "RTF" -> Color(0xFF2B579A)
+        "XLS", "XLSX", "ODS", "CSV" -> Color(0xFF217346)
+        "PPT", "PPTX", "ODP" -> Color(0xFFD24726)
+        "TXT", "MD" -> Color(0xFF5F6368)
+        else -> Color(0xFF6D4C9F)
+    }
+    androidx.compose.foundation.layout.Column(
+        Modifier.fillMaxSize().background(color.copy(alpha = 0.12f)).padding(8.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(ext, color = color, style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        Text(
+            shot.displayName.substringBeforeLast('.'),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 4,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }

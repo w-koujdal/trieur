@@ -102,6 +102,11 @@ fun DetailSheet(
         ) {
             Text(shot.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            Text(
+                "📍 " + displayPath(shot),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
             CategoryPicker(shot, onCategoryChange, Modifier.padding(top = 8.dp))
             val seen = remember(shot.labels) { Labels.display(Labels.decode(shot.labels)).take(6) }
             if (seen.isNotEmpty()) {
@@ -121,7 +126,7 @@ fun DetailSheet(
                 OutlinedButton(onClick = onShare) {
                     Icon(Icons.Filled.Share, contentDescription = "Partager")
                 }
-                if (canDelete && shot.source != Source.PDF.name) {
+                if (canDelete && !Source.fromName(shot.source).isFile) {
                     OutlinedButton(onClick = onDelete) {
                         Icon(Icons.Filled.Delete, contentDescription = "Mettre à la corbeille")
                     }

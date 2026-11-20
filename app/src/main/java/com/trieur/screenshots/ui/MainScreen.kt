@@ -110,7 +110,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
 
     fun requestDelete(shots: List<Screenshot>) {
         // Android ne permet pas de mettre un PDF (fichier hors MediaStore) à la corbeille d'ici.
-        val media = shots.filter { it.source != Source.PDF.name }
+        val media = shots.filter { !Source.fromName(it.source).isFile }
         if (media.size < shots.size) {
             Toast.makeText(context, "Les PDF restent en place : supprime-les depuis Mes fichiers", Toast.LENGTH_LONG).show()
         }

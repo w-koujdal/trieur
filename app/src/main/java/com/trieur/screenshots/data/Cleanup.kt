@@ -17,7 +17,7 @@ const val CAMERA_APP = "Appareil photo"
  */
 fun cleanupSuggestions(all: List<Screenshot>, now: Long, minPerApp: Int = 5): List<Suggestion> {
     // PDF exclus : Android ne permet pas de les mettre à la corbeille depuis l'appli.
-    val candidates = all.filterNot { it.categoryLocked || it.source == Source.PDF.name }
+    val candidates = all.filterNot { it.categoryLocked || Source.fromName(it.source).isFile }
     val out = mutableListOf<Suggestion>()
 
     candidates.filter { it.category == Category.CODE.name && now - it.dateTaken > DAY }

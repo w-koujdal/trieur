@@ -157,7 +157,7 @@ class ScreenshotScanner(
         }
 
         pdfTodo.forEachIndexed { i, pdf ->
-            indexPdf(pdf)
+            if (pdf.isPdf) indexPdf(pdf) else indexDoc(pdf)
             onProgress(todo.size + changed.size + i + 1, total)
         }
 
@@ -218,6 +218,39 @@ class ScreenshotScanner(
                 folder = pdf.tree,
                 labels = "",
                 tags = "pdf document",
+                path = pdf.path,
+            )
+        )
+    }
+
+    /** Autre document : texte lu quand le format le permet (Word, texte, tableur…), sinon le nom seul. */
+    private fun indexDocText(doc: PdfSource.PdfFile): String =
+        if (!DocText.canRead(doc.name)) ""
+        else try {
+            DocText.extract(context, doc.uri, doc.name)
+        } catch (e: Exception) {
+            Log.w(TAG, "Document illisible : ${doc.name}", e)
+            ""
+        }
+
+    private suspend fun indexDoc(doc: PdfSource.PdfFile) {
+        val content = indexDocText(doc).trim()
+        val category = Classifier.classify(content, null, Source.DOC)
+        dao.insert(
+            Screenshot(
+                mediaId = doc.id,
+                uri = doc.uri.toString(),
+                displayName = doc.name,
+                dateTaken = doc.modified,
+                text = content,
+                sourceApp = null,
+                category = category.name,
+                dhash = null,
+                source = Source.DOC.name,
+                folder = doc.tree,
+                labels = "",
+                tags = "document " + DocText.extension(doc.name),
+                path = doc.path,
             )
         )
     }

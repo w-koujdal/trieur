@@ -32,13 +32,15 @@ data class Screenshot(
     val tags: String? = null,
     /** DATE_MODIFIED du MediaStore (secondes) lors de l'analyse ; 0 = inconnue (avant la v6). */
     @ColumnInfo(defaultValue = "0") val modified: Long = 0,
+    /** Chemin lisible dans le téléphone, ex. « Download/Candidatures/CV.pdf » (documents des dossiers choisis). */
+    val path: String? = null,
 )
 
 /**
  * Index plein texte adossé à [Screenshot] : Room crée les triggers qui le tiennent à jour.
  * unicode61 ignore les accents ("ecole" trouve "École"). [tags] rend les photos cherchables
- * par ce qu'elles montrent (« chien », « plage »).
+ * par ce qu'elles montrent (« chien », « plage »), [displayName] par le nom du fichier (« CV »).
  */
 @Fts4(contentEntity = Screenshot::class, tokenizer = FtsOptions.TOKENIZER_UNICODE61)
 @Entity(tableName = "screenshots_fts")
-data class ScreenshotFts(val text: String, val tags: String?)
+data class ScreenshotFts(val text: String, val tags: String?, val displayName: String)

@@ -41,6 +41,7 @@ private val Source.help: String
         Source.GALLERY -> "Photos de l'appareil photo et images enregistrées depuis les applis. " +
             "La première lecture peut prendre plusieurs minutes."
         Source.PDF -> "Documents PDF des dossiers choisis"
+        Source.DOC -> "Word, texte, tableurs… des dossiers choisis"
     }
 
 /** « primary:Download/Factures » → « Download/Factures ». */
@@ -116,13 +117,14 @@ fun SettingsSheet(
             SourceToggles(enabled, onToggle)
 
             Text(
-                "Dossiers PDF",
+                "Dossiers de documents",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp),
             )
             Text(
-                "Android ne donne pas accès aux PDF avec la permission photos : choisis les dossiers à lire " +
-                    "(ex. Download). Les 5 premières pages de chaque PDF sont lues.",
+                "Android ne donne pas accès aux documents avec la permission photos : choisis les dossiers à lire " +
+                    "(ex. Download, Documents). Tous les fichiers sont cherchables par leur nom ; le texte des PDF " +
+                    "(5 premières pages), Word, texte et tableurs est lu aussi.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )

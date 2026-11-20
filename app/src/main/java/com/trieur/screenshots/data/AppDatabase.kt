@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Screenshot::class, ScreenshotFts::class], version = 6)
+@Database(entities = [Screenshot::class, ScreenshotFts::class], version = 7)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun screenshotDao(): ScreenshotDao
 
@@ -62,6 +62,33 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE screenshots ADD COLUMN modified INTEGER NOT NULL DEFAULT 0")
             }
         }
+
+        /**
+         * v7 : chemin lisible des documents, et nom de fichier dans l'index plein texte (« CV »
+         * trouve CV_2025.pdf). Comme en v5, la table FTS est recréée puis reconstruite.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE screenshots ADD COLUMN path TEXT")
+                for (t in listOf("BEFORE_UPDATE", "BEFORE_DELETE", "AFTER_UPDATE", "AFTER_INSERT")) {
+                    db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_screenshots_fts_$t")
+                }
+                db.execSQL("DROP TABLE IF EXISTS screenshots_fts")
+                db.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `screenshots_fts` USING FTS4(" +
+                        "`text` TEXT NOT NULL, `tags` TEXT, `displayName` TEXT NOT NULL, tokenize=unicode61, content=`screenshots`)"
+                )
+                FTS_TRIGGERS_V7.forEach(db::execSQL)
+                db.execSQL("INSERT INTO screenshots_fts(screenshots_fts) VALUES('rebuild')")
+            }
+        }
+
+        private val FTS_TRIGGERS_V7 = listOf(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_screenshots_fts_BEFORE_UPDATE BEFORE UPDATE ON `screenshots` BEGIN DELETE FROM `screenshots_fts` WHERE `docid`=OLD.`rowid`; END",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_screenshots_fts_BEFORE_DELETE BEFORE DELETE ON `screenshots` BEGIN DELETE FROM `screenshots_fts` WHERE `docid`=OLD.`rowid`; END",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_screenshots_fts_AFTER_UPDATE AFTER UPDATE ON `screenshots` BEGIN INSERT INTO `screenshots_fts`(`docid`, `text`, `tags`, `displayName`) VALUES (NEW.`rowid`, NEW.`text`, NEW.`tags`, NEW.`displayName`); END",
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_screenshots_fts_AFTER_INSERT AFTER INSERT ON `screenshots` BEGIN INSERT INTO `screenshots_fts`(`docid`, `text`, `tags`, `displayName`) VALUES (NEW.`rowid`, NEW.`text`, NEW.`tags`, NEW.`displayName`); END",
+        )
 
         private val FTS_TRIGGERS = listOf(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_screenshots_fts_BEFORE_UPDATE BEFORE UPDATE ON `screenshots` BEGIN DELETE FROM `screenshots_fts` WHERE `docid`=OLD.`rowid`; END",

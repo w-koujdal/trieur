@@ -15,11 +15,27 @@ import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.Source
 import com.trieur.screenshots.scan.PdfSource
 
-private val Screenshot.mime: String get() = if (source == Source.PDF.name) "application/pdf" else "image/*"
+private val Screenshot.mime: String
+    get() = when (source) {
+        Source.PDF.name -> "application/pdf"
+        Source.DOC.name -> android.webkit.MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(displayName.substringAfterLast('.', "").lowercase()) ?: "*/*"
+        else -> "image/*"
+    }
+
+/** Où se trouve le fichier, lisible : « Téléphone › Download › CV.pdf ». */
+fun displayPath(shot: Screenshot): String {
+    val parts = shot.path?.split('/')?.filter { it.isNotBlank() }
+        ?: (shot.folder.orEmpty().split('/').filter { it.isNotBlank() && !it.startsWith("content:") } + shot.displayName)
+    return (listOf("Téléphone") + parts).joinToString(" › ")
+}
 
 /** Ce que la grille affiche : la vignette mise en cache pour un PDF, l'image elle-même sinon. */
-fun thumbnailModel(context: Context, shot: Screenshot): Any =
-    if (shot.source == Source.PDF.name) PdfSource.thumbnailFile(context, shot.mediaId) else Uri.parse(shot.uri)
+fun thumbnailModel(context: Context, shot: Screenshot): Any? = when (shot.source) {
+    Source.PDF.name -> PdfSource.thumbnailFile(context, shot.mediaId)
+    Source.DOC.name -> null
+    else -> Uri.parse(shot.uri)
+}
 
 fun openItem(context: Context, shot: Screenshot) {
     start(context, Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(shot.uri), shot.mime), "ouvrir ce fichier")

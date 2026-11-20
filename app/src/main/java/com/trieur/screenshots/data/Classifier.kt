@@ -41,6 +41,16 @@ object Classifier {
         val letters = t.count { it.isLetter() }
         val isPhoto = source != Source.SCREENSHOT
 
+        // Document (Word, texte…) : un document, sauf si son texte dit mieux (facture, billet…).
+        if (source == Source.DOC) {
+            return when {
+                letters < 4 -> Category.DOCUMENT
+                isPurchase(t) -> Category.PURCHASE
+                isTravel(t) -> Category.TRAVEL
+                else -> Category.DOCUMENT
+            }
+        }
+
         if (letters < 4) {
             return if (isPhoto) Labels.categoryFor(labels) ?: Category.PHOTO else Category.NO_TEXT
         }

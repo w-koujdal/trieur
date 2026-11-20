@@ -21,7 +21,23 @@ object PdfSource {
     const val MAX_RENDER_HEIGHT = 4096
     private const val THUMB_WIDTH = 540
 
-    data class PdfFile(val id: Long, val uri: Uri, val name: String, val modified: Long, val tree: String)
+    data class PdfFile(
+        val id: Long,
+        val uri: Uri,
+        val name: String,
+        val modified: Long,
+        val tree: String,
+        val mime: String?,
+        /** Chemin lisible : « Download/Candidatures/CV.pdf ». */
+        val path: String,
+        val size: Long,
+    ) {
+        val isPdf get() = mime == "application/pdf" || name.endsWith(".pdf", ignoreCase = true)
+    }
+
+    /** « primary:Download/CV.pdf » → « Download/CV.pdf » ; autres stockages : identifiant tel quel. */
+    fun readablePath(documentId: String): String =
+        documentId.substringAfter(':', documentId).trim('/')
 
     /**
      * Identifiant stable et négatif (les identifiants du MediaStore sont positifs) tiré de l'URI.
@@ -34,7 +50,11 @@ object PdfSource {
         return -((v and Long.MAX_VALUE).coerceAtLeast(1))
     }
 
-    /** Tous les PDF d'un dossier et de ses sous-dossiers. Lève une exception si l'accès a été retiré. */
+    /**
+     * Tous les documents d'un dossier et de ses sous-dossiers : PDF, Word, texte… Les images,
+     * vidéos et musiques sont laissées au MediaStore (sources Captures, Galerie). Les fichiers
+     * cachés (« .nomedia ») sont ignorés. Lève une exception si l'accès a été retiré.
+     */
     fun list(context: Context, tree: Uri): List<PdfFile> {
         val out = mutableListOf<PdfFile>()
         val pending = ArrayDeque<String>().apply { add(DocumentsContract.getTreeDocumentId(tree)) }
@@ -43,6 +63,7 @@ object PdfSource {
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
             DocumentsContract.Document.COLUMN_MIME_TYPE,
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            DocumentsContract.Document.COLUMN_SIZE,
         )
         while (pending.isNotEmpty()) {
             val parent = pending.removeFirst()
@@ -53,10 +74,12 @@ object PdfSource {
                     val name = c.getString(1) ?: continue
                     val mime = c.getString(2)
                     when {
+                        name.startsWith(".") -> Unit
                         mime == DocumentsContract.Document.MIME_TYPE_DIR -> pending.add(docId)
-                        mime == "application/pdf" || name.endsWith(".pdf", ignoreCase = true) -> {
+                        mime != null && (mime.startsWith("image/") || mime.startsWith("video/") || mime.startsWith("audio/")) -> Unit
+                        else -> {
                             val uri = DocumentsContract.buildDocumentUriUsingTree(tree, docId)
-                            out += PdfFile(stableId(uri.toString()), uri, name, c.getLong(3), tree.toString())
+                            out += PdfFile(stableId(uri.toString()), uri, name, c.getLong(3), tree.toString(), mime, readablePath(docId), c.getLong(4))
                         }
                     }
                 }

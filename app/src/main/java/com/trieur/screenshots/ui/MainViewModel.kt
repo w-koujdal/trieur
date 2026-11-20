@@ -71,7 +71,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Retire le dossier : ses PDF sortent de l'index au prochain scan (les fichiers restent). */
     fun removePdfTree(uri: String) {
         trieur.removePdfTree(uri)
-        if (_source.value == Source.PDF && trieur.pdfTrees.value.isEmpty()) selectSource(null)
+        if (_source.value?.isFile == true && trieur.pdfTrees.value.isEmpty()) selectSource(null)
         startScan(force = true)
     }
 
