@@ -27,6 +27,8 @@ class SourcesTest {
         assertEquals("Messages", Classifier.sourceApp("x.jpg", "Pictures/Messages/"))
         assertEquals(CAMERA_APP, Classifier.sourceApp("20261101_101010.jpg", "DCIM/Camera/"))
         assertNull(Classifier.sourceApp("photo.jpg", "Download/"))
+        // Un compteur en fin de nom n'est pas une appli (cas « 594 » vu sur le téléphone).
+        assertNull(Classifier.sourceApp("Photo_20240101_101010_594.jpg", "DCIM/Restored/"))
         // Le nom de fichier Samsung reste prioritaire.
         assertEquals("Chrome", Classifier.sourceApp("Screenshot_20261116_223243_Chrome.jpg", "DCIM/Screenshots/"))
     }

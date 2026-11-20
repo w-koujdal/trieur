@@ -8,6 +8,12 @@ package com.trieur.screenshots.data
 object Duplicates {
     /** Bits différents tolérés sur 64 (heure, batterie, légère animation). */
     const val MAX_HASH_DISTANCE = 6
+
+    /**
+     * Sans texte des deux côtés, seule l'image compte : seuil plus strict, sinon deux photos
+     * différentes mais semblables en miniature (scènes sombres, ciel) passeraient pour des doublons.
+     */
+    const val MAX_HASH_DISTANCE_NO_TEXT = 2
     const val MIN_TEXT_SIMILARITY = 0.8
 
     /** dHash sur une image 9×8 en niveaux de gris (ligne par ligne) : 1 si un pixel est plus clair que son voisin de droite. */
@@ -37,6 +43,13 @@ object Duplicates {
         // Lettres isolées ignorées (bruit d'OCR), mais pas les chiffres : « 1 » et « 2 » doivent différer.
         foldText(s).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 2 || it.any(Char::isDigit) }.toSet()
 
+    fun isDuplicate(a: Screenshot, b: Screenshot): Boolean {
+        val d = distance(a.dhash ?: return false, b.dhash ?: return false)
+        if (d > MAX_HASH_DISTANCE) return false
+        val noText = words(a.text).isEmpty() && words(b.text).isEmpty()
+        return if (noText) d <= MAX_HASH_DISTANCE_NO_TEXT else textSimilarity(a.text, b.text) >= MIN_TEXT_SIMILARITY
+    }
+
     /** Groupes de doublons (2 captures ou plus), chaque groupe trié du plus récent au plus ancien. */
     fun groups(items: List<Screenshot>): List<List<Screenshot>> {
         val hashed = items.filter { it.dhash != null }
@@ -49,11 +62,7 @@ object Duplicates {
         for (i in hashed.indices) for (j in i + 1 until hashed.size) {
             val a = hashed[i]
             val b = hashed[j]
-            if (distance(a.dhash!!, b.dhash!!) <= MAX_HASH_DISTANCE &&
-                textSimilarity(a.text, b.text) >= MIN_TEXT_SIMILARITY
-            ) {
-                parent[find(i)] = find(j)
-            }
+            if (isDuplicate(a, b)) parent[find(i)] = find(j)
         }
         return hashed.indices.groupBy(::find).values
             .filter { it.size > 1 }

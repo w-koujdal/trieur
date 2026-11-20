@@ -8,7 +8,7 @@ package com.trieur.screenshots.data
  * au prochain démarrage.
  */
 object Classifier {
-    const val VERSION = 2
+    const val VERSION = 3
 
     /** Au-delà, une photo ou une image téléchargée est surtout du texte : un document. */
     private const val DOCUMENT_MIN_LETTERS = 200
@@ -19,7 +19,8 @@ object Classifier {
      */
     fun sourceApp(displayName: String, folder: String? = null): String? {
         Regex("""^[A-Za-z]+_\d{8}_\d{6}_(.+)\.\w+$""").find(displayName)
-            ?.groupValues?.get(1)?.trim()?.ifEmpty { null }
+            ?.groupValues?.get(1)?.trim()
+            ?.takeIf { name -> name.any { it.isLetter() } } // « …_594.jpg » : un compteur, pas une appli
             ?.let { return it }
         val f = folder?.lowercase() ?: return null
         return FOLDER_APPS.firstOrNull { (key, _) -> f.contains(key) }?.second

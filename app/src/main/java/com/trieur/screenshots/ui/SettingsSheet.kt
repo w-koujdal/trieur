@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -47,18 +49,21 @@ fun SettingsSheet(enabled: Set<Source>, onToggle: (Source, Boolean) -> Unit, onD
             )
             Source.entries.forEach { source ->
                 val on = source in enabled
+                // Au moins une source reste active.
+                val canToggle = !on || enabled.size > 1
                 ListItem(
                     headlineContent = { Text(source.label) },
                     supportingContent = { Text(source.help) },
-                    trailingContent = {
-                        Switch(
-                            checked = on,
-                            // Au moins une source reste active.
-                            enabled = !on || enabled.size > 1,
-                            onCheckedChange = { onToggle(source, it) },
+                    // L'interrupteur seul est une petite cible : toute la ligne bascule.
+                    trailingContent = { Switch(checked = on, enabled = canToggle, onCheckedChange = null) },
+                    modifier = Modifier
+                        .toggleable(
+                            value = on,
+                            enabled = canToggle,
+                            role = Role.Switch,
+                            onValueChange = { onToggle(source, it) },
                         )
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                        .padding(horizontal = 8.dp),
                 )
             }
         }

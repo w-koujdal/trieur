@@ -44,6 +44,17 @@ class DuplicatesAndCleanupTest {
     }
 
     @Test
+    fun photosWithoutText_needNearlyIdenticalImages() {
+        val a = shot(1, hash = 0L)
+        val twoBits = shot(2, hash = 0b11L)
+        val fiveBits = shot(3, hash = 0b11111L)
+        assertTrue(Duplicates.isDuplicate(a, twoBits))
+        // 5 bits suffiraient avec du texte identique, pas sans texte.
+        assertTrue(!Duplicates.isDuplicate(a, fiveBits))
+        assertTrue(Duplicates.isDuplicate(a.copy(text = "même texte ici"), fiveBits.copy(text = "même texte ici")))
+    }
+
+    @Test
     fun suggestions_keepNewestDuplicate_andSkipLockedOnes() {
         val items = listOf(
             shot(1, daysAgo = 3, category = Category.CODE),
