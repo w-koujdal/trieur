@@ -17,6 +17,7 @@ import com.trieur.screenshots.data.Labels
 import com.trieur.screenshots.data.Screenshot
 import com.trieur.screenshots.data.ScreenshotDao
 import com.trieur.screenshots.data.Source
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -85,7 +86,10 @@ class ScreenshotScanner(
             pdfs.mapTo(this) { it.id }
             addAll(dao.idsInFolders(unreadable))
         }
-        val gone = indexed - present
+        // Accès limité (« photos choisies », Android 14+) : les images non choisies sont absentes
+        // de la liste sans avoir été supprimées. On ne retire alors aucune image, seulement des PDF.
+        val fullAccess = hasFullMediaAccess(context)
+        val gone = (indexed - present).filter { fullAccess || it < 0 }
         gone.chunked(500).forEach { dao.delete(it) }
         gone.filter { it < 0 }.forEach { PdfSource.thumbnailFile(context, it).delete() }
 
@@ -95,7 +99,10 @@ class ScreenshotScanner(
         val total = todo.size + pdfTodo.size
         onProgress(0, total)
         todo.forEachIndexed { i, item ->
-            val (text, labels) = analyze(item)
+            onProgress(i + 1, total)
+            // Échec (fichier en cours d'écriture, illisible) : rien n'est enregistré, l'image sera
+            // reprise au prochain scan au lieu de rester « sans texte » (et proposée à la corbeille).
+            val (text, labels) = analyze(item) ?: return@forEachIndexed
             val sourceApp = Classifier.sourceApp(item.name, item.folder)
             dao.insert(
                 Screenshot(
@@ -113,7 +120,6 @@ class ScreenshotScanner(
                     tags = labels?.let(Labels::searchTags),
                 )
             )
-            onProgress(i + 1, total)
         }
 
         pdfTodo.forEachIndexed { i, pdf ->
@@ -131,7 +137,9 @@ class ScreenshotScanner(
             val labels = try {
                 val bitmap = loadScaled(Uri.parse(m.uri), MAX_LABEL_SIDE)
                 try { label(bitmap) } finally { bitmap.recycle() }
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
                 Log.w(TAG, "Étiquetage impossible pour ${m.mediaId}", e)
                 emptyList()
             }
@@ -154,8 +162,12 @@ class ScreenshotScanner(
                 }
                 text.appendLine(recognizer.process(InputImage.fromBitmap(page, 0)).await().text)
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "PDF illisible : ${pdf.name}", e) // protégé par mot de passe, abîmé…
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // Protégé par mot de passe, abîmé, trop gros : rien n'est enregistré, nouvel essai au prochain scan.
+            Log.w(TAG, "PDF illisible : ${pdf.name}", e)
+            return
         }
         val content = text.toString().trim()
         dao.insert(
@@ -176,8 +188,8 @@ class ScreenshotScanner(
         )
     }
 
-    /** Texte (OCR) et, hors captures d'écran, étiquettes de ce que montre l'image. */
-    private suspend fun analyze(item: MediaItem): Pair<String, List<Labels.Label>?> = try {
+    /** Texte (OCR) et, hors captures d'écran, étiquettes ; null si l'image n'a pas pu être lue. */
+    private suspend fun analyze(item: MediaItem): Pair<String, List<Labels.Label>?>? = try {
         val bitmap = loadScaled(item.uri, MAX_OCR_SIDE)
         try {
             val text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text
@@ -186,9 +198,11 @@ class ScreenshotScanner(
         } finally {
             bitmap.recycle()
         }
-    } catch (e: Exception) {
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) { // y compris OutOfMemoryError : une image ne doit pas faire planter le scan
         Log.w(TAG, "Analyse impossible pour ${item.name}", e)
-        "" to if (item.source == Source.SCREENSHOT) null else emptyList()
+        null
     }
 
     private suspend fun label(bitmap: Bitmap): List<Labels.Label> =

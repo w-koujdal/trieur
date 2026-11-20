@@ -52,21 +52,27 @@ object Duplicates {
 
     /** Groupes de doublons (2 captures ou plus), chaque groupe trié du plus récent au plus ancien. */
     fun groups(items: List<Screenshot>): List<List<Screenshot>> {
-        val hashed = items.filter { it.dhash != null }
-        val parent = IntArray(hashed.size) { it }
-        fun find(i: Int): Int {
-            var r = i
-            while (parent[r] != r) r = parent[r]
-            return r
+        // Groupes autour d'un pivot (le plus récent, celui qu'on garde) : chaque membre doit être
+        // un doublon du pivot lui-même. Un regroupement de proche en proche (A≈B, B≈C) enchaînerait
+        // des captures successives d'une conversation qui défile, et proposerait de les jeter.
+        val hashed = items.filter { it.dhash != null }.sortedByDescending { it.dateTaken }
+        val taken = BooleanArray(hashed.size)
+        val groups = mutableListOf<List<Screenshot>>()
+        for (i in hashed.indices) {
+            if (taken[i]) continue
+            val pivot = hashed[i]
+            val group = mutableListOf(pivot)
+            for (j in i + 1 until hashed.size) {
+                if (!taken[j] && isDuplicate(pivot, hashed[j])) {
+                    taken[j] = true
+                    group += hashed[j]
+                }
+            }
+            if (group.size > 1) {
+                taken[i] = true
+                groups += group
+            }
         }
-        for (i in hashed.indices) for (j in i + 1 until hashed.size) {
-            val a = hashed[i]
-            val b = hashed[j]
-            if (isDuplicate(a, b)) parent[find(i)] = find(j)
-        }
-        return hashed.indices.groupBy(::find).values
-            .filter { it.size > 1 }
-            .map { idx -> idx.map { hashed[it] }.sortedByDescending { it.dateTaken } }
-            .sortedByDescending { it.first().dateTaken }
+        return groups
     }
 }

@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,15 +96,16 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     }
 
     // Corbeille : le système affiche sa propre confirmation, on ne touche à l'index que si elle est acceptée.
-    var pendingDelete by remember { mutableStateOf<List<Long>>(emptyList()) }
+    // Sauvegardé : survit à une rotation pendant que la confirmation système est affichée.
+    var pendingDelete by rememberSaveable { mutableStateOf(longArrayOf()) }
     val deleteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            vm.removeFromIndex(pendingDelete)
-            if (detail?.mediaId in pendingDelete) vm.openDetail(null)
+            vm.removeFromIndex(pendingDelete.toList())
+            if (detail?.mediaId?.let { it in pendingDelete } == true) vm.openDetail(null)
         }
-        pendingDelete = emptyList()
+        pendingDelete = longArrayOf()
     }
 
     fun requestDelete(shots: List<Screenshot>) {
@@ -113,7 +115,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
             Toast.makeText(context, "Les PDF restent en place : supprime-les depuis Mes fichiers", Toast.LENGTH_LONG).show()
         }
         val sender = deleteRequest(context, media.map { it.uri }) ?: return
-        pendingDelete = media.map { it.mediaId }
+        pendingDelete = media.map { it.mediaId }.toLongArray()
         deleteLauncher.launch(IntentSenderRequest.Builder(sender).build())
     }
 

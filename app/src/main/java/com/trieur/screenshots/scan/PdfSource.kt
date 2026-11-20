@@ -18,6 +18,7 @@ object PdfSource {
     /** Pages lues au plus : l'essentiel d'un document est au début, et l'OCR coûte ~0,3 s par page. */
     const val MAX_PAGES = 5
     const val RENDER_WIDTH = 1600
+    const val MAX_RENDER_HEIGHT = 4096
     private const val THUMB_WIDTH = 540
 
     data class PdfFile(val id: Long, val uri: Uri, val name: String, val modified: Long, val tree: String)
@@ -71,8 +72,12 @@ object PdfSource {
             PdfRenderer(fd).use { pdf ->
                 for (i in 0 until minOf(pdf.pageCount, MAX_PAGES)) {
                     pdf.openPage(i).use { page ->
-                        val height = (RENDER_WIDTH.toFloat() * page.height / page.width).toInt().coerceAtLeast(1)
-                        val bitmap = Bitmap.createBitmap(RENDER_WIDTH, height, Bitmap.Config.ARGB_8888)
+                        // Hauteur plafonnée : une page très haute (ticket, page web exportée) ferait
+                        // une image de plusieurs centaines de Mo. On réduit alors la largeur aussi.
+                        val ratio = page.height.toFloat() / page.width.coerceAtLeast(1)
+                        val width = minOf(RENDER_WIDTH.toFloat(), MAX_RENDER_HEIGHT / ratio).toInt().coerceAtLeast(1)
+                        val height = (width * ratio).toInt().coerceIn(1, MAX_RENDER_HEIGHT)
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                         bitmap.eraseColor(Color.WHITE)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                         try {

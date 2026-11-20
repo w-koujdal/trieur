@@ -81,9 +81,11 @@ class TrieurApp : Application() {
         if (prefs.getInt(KEY_CLASSIFIER_VERSION, 0) >= Classifier.VERSION) return
         try {
             val dao = database.screenshotDao()
-            val inputs = dao.classificationInputs()
             val tally = mutableMapOf<String, Int>()
-            database.withTransaction {
+            // Lecture dans la transaction : un scan en parallèle ne peut pas écrire entre la lecture
+            // et la mise à jour (ses étiquettes seraient écrasées par des valeurs périmées).
+            val count = database.withTransaction {
+                val inputs = dao.classificationInputs()
                 for (s in inputs) {
                     val app = Classifier.sourceApp(s.displayName, s.folder)
                     val labels = Labels.decode(s.labels)
@@ -93,9 +95,10 @@ class TrieurApp : Application() {
                     dao.updateClassification(s.mediaId, app, category.name, tags)
                     tally.merge(category.name, 1, Int::plus)
                 }
+                inputs.size
             }
             prefs.edit().putInt(KEY_CLASSIFIER_VERSION, Classifier.VERSION).apply()
-            Log.i(TAG, "Reclassement v${Classifier.VERSION} : ${inputs.size} image(s) $tally")
+            Log.i(TAG, "Reclassement v${Classifier.VERSION} : $count image(s) $tally")
         } catch (e: Exception) {
             Log.w(TAG, "Reclassement échoué", e)
         }

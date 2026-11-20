@@ -6,16 +6,18 @@ import android.app.job.JobScheduler
 import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import com.trieur.screenshots.TrieurApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
@@ -35,18 +37,28 @@ class IndexJobService : JobService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /** Une coroutine par tâche : arrêter l'une (contrainte perdue) ne doit pas annuler l'autre. */
+    private val running = ConcurrentHashMap<Int, Job>()
+
     override fun onStartJob(params: JobParameters): Boolean {
-        scope.launch {
+        running[params.jobId] = scope.launch {
             if (hasMediaAccess(applicationContext)) {
                 try {
-                    val added = (application as TrieurApp).scanner.scan { _, _ -> }
-                    Log.i(TAG, "Indexation en arrière-plan : $added nouvelle(s) capture(s)")
+                    // Une image ajoutée pendant le scan ne redéclenche rien (le déclencheur n'est
+                    // réarmé qu'après) : tant que le MediaStore a changé entre-temps, on refait un tour.
+                    var rounds = 0
+                    do {
+                        val before = mediaGeneration()
+                        val added = (application as TrieurApp).scanner.scan { _, _ -> }
+                        Log.i(TAG, "Indexation en arrière-plan : $added nouvelle(s) image(s)")
+                    } while (before != null && mediaGeneration() != before && ++rounds < 3)
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     Log.w(TAG, "Indexation en arrière-plan échouée", e)
                 }
             }
+            running.remove(params.jobId)
             jobFinished(params, false)
             // Réarmer seulement une fois la tâche terminée : reprogrammer le même identifiant
             // pendant qu'elle tourne l'arrêterait.
@@ -55,11 +67,15 @@ class IndexJobService : JobService() {
         return true
     }
 
-    /** Arrêt imposé par le système : on reprendra plus tard, les captures déjà lues sont gardées. */
+    /** Arrêt imposé par le système (pour cette tâche seulement) : on reprendra plus tard. */
     override fun onStopJob(params: JobParameters): Boolean {
-        scope.coroutineContext.cancelChildren()
+        running.remove(params.jobId)?.cancel()
         return true
     }
+
+    /** Compteur de modifications du MediaStore (Android 11+), null avant. */
+    private fun mediaGeneration(): Long? =
+        if (Build.VERSION.SDK_INT >= 30) MediaStore.getGeneration(applicationContext, MediaStore.VOLUME_EXTERNAL_PRIMARY) else null
 
     override fun onDestroy() {
         scope.cancel()

@@ -44,6 +44,17 @@ class DuplicatesAndCleanupTest {
     }
 
     @Test
+    fun chainedLookalikes_areNotGroupedTogether() {
+        // A≈B (2 bits) et B≈C (2 bits) mais A et C diffèrent (4 bits) : sans texte, seuil 2.
+        val a = shot(1, daysAgo = 0, hash = 0b0000L)
+        val b = shot(2, daysAgo = 1, hash = 0b0011L)
+        val c = shot(3, daysAgo = 2, hash = 0b1111L)
+        val groups = Duplicates.groups(listOf(a, b, c))
+        // Seul B est un doublon du plus récent (A) ; C n'est proposé à personne.
+        assertEquals(listOf(listOf(1L, 2L)), groups.map { g -> g.map { it.mediaId } })
+    }
+
+    @Test
     fun photosWithoutText_needNearlyIdenticalImages() {
         val a = shot(1, hash = 0L)
         val twoBits = shot(2, hash = 0b11L)
