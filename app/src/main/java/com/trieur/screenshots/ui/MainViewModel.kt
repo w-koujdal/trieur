@@ -69,17 +69,46 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _scan = MutableStateFlow(ScanState())
     val scan: StateFlow<ScanState> = _scan.asStateFlow()
 
+    /** Captures sélectionnées (mode sélection actif dès qu'il y en a une). */
+    private val _selection = MutableStateFlow<Set<Long>>(emptySet())
+    val selection: StateFlow<Set<Long>> = _selection.asStateFlow()
+
+    // Changer de recherche ou de filtre vide la sélection : on n'agit jamais sur des captures
+    // qui ne sont plus affichées.
     fun onQueryChange(value: String) {
+        if (value != _query.value) clearSelection()
         _query.value = value
     }
 
     /** Re-toucher la catégorie active la désélectionne. */
     fun toggleCategory(value: Category) {
+        clearSelection()
         _category.update { if (it == value) null else value }
     }
 
     fun selectApp(value: String?) {
+        clearSelection()
         _app.value = value
+    }
+
+    fun toggleSelection(id: Long) {
+        _selection.update { if (id in it) it - id else it + id }
+    }
+
+    /** Tout sélectionner parmi [visible], ou tout désélectionner si c'est déjà le cas. */
+    fun toggleSelectAll(visible: Collection<Long>) {
+        _selection.update { if (it.containsAll(visible)) emptySet() else visible.toSet() }
+    }
+
+    fun clearSelection() {
+        _selection.value = emptySet()
+    }
+
+    /** Après suppression confirmée par le système : retire tout de suite les captures de l'index. */
+    fun removeFromIndex(ids: Collection<Long>) {
+        val gone = ids.toSet()
+        _selection.update { it - gone }
+        viewModelScope.launch { gone.chunked(500).forEach { dao.delete(it) } }
     }
 
     fun startScan() {

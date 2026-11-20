@@ -1,42 +1,22 @@
 package com.trieur.screenshots.ui
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
-import com.trieur.screenshots.scan.hasMediaAccess
-import com.trieur.screenshots.scan.mediaPermissions
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import com.trieur.screenshots.data.findHighlights
-import com.trieur.screenshots.data.searchTokens
-import java.text.DateFormat
-import java.util.Date
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,7 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,15 +37,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.trieur.screenshots.data.Screenshot
+import com.trieur.screenshots.scan.hasMediaAccess
+import com.trieur.screenshots.scan.mediaPermissions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,9 +58,11 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
     val app by vm.app.collectAsStateWithLifecycle()
     val categoryCounts by vm.categoryCounts.collectAsStateWithLifecycle()
     val appCounts by vm.appCounts.collectAsStateWithLifecycle()
+    val selection by vm.selection.collectAsStateWithLifecycle()
+    val selecting = selection.isNotEmpty()
     val filtering = query.isNotBlank() || category != null || app != null
     var hasAccess by remember { mutableStateOf(hasMediaAccess(context)) }
-    var selected by remember { mutableStateOf<Screenshot?>(null) }
+    var detail by remember { mutableStateOf<Screenshot?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -92,19 +75,65 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         if (hasMediaAccess(context)) vm.startScan() else permissionLauncher.launch(mediaPermissions)
     }
 
+    // Suppression : le système affiche sa propre confirmation, on ne touche à l'index que si elle est acceptée.
+    var pendingDelete by remember { mutableStateOf<List<Long>>(emptyList()) }
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            vm.removeFromIndex(pendingDelete)
+            if (detail?.mediaId in pendingDelete) detail = null
+        }
+        pendingDelete = emptyList()
+    }
+
+    fun requestDelete(shots: List<Screenshot>) {
+        val sender = deleteRequest(context, shots.map { it.uri }) ?: return
+        pendingDelete = shots.map { it.mediaId }
+        deleteLauncher.launch(IntentSenderRequest.Builder(sender).build())
+    }
+
+    val selectedShots = results.filter { it.mediaId in selection }
+
     // Scan incrémental à l'ouverture si l'accès est déjà accordé.
     LaunchedEffect(Unit) { if (hasAccess) vm.startScan() }
+    BackHandler(enabled = selecting) { vm.clearSelection() }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Trieur de captures") },
-                actions = {
-                    IconButton(onClick = ::scanOrAsk, enabled = !scan.running) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Rescanner")
-                    }
-                },
-            )
+            if (selecting) {
+                TopAppBar(
+                    title = { Text("${selection.size} sélectionnée${if (selection.size > 1) "s" else ""}") },
+                    navigationIcon = {
+                        IconButton(onClick = vm::clearSelection) {
+                            Icon(Icons.Filled.Close, contentDescription = "Annuler la sélection")
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = { vm.toggleSelectAll(results.map { it.mediaId }) }) { Text("Tout") }
+                        IconButton(onClick = { shareImages(context, selectedShots.map { it.uri }) }) {
+                            Icon(Icons.Filled.Share, contentDescription = "Partager la sélection")
+                        }
+                        if (canDelete) {
+                            IconButton(onClick = { requestDelete(selectedShots) }) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Supprimer la sélection")
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
+                )
+            } else {
+                TopAppBar(
+                    title = { Text("Trieur de captures") },
+                    actions = {
+                        IconButton(onClick = ::scanOrAsk, enabled = !scan.running) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Rescanner")
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         Column(
@@ -137,7 +166,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 apps = appCounts,
                 selectedApp = app,
                 onAppSelected = vm::selectApp,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(bottom = 4.dp),
             )
 
             StatusLine(scan = scan, indexed = indexed, resultCount = results.size, filtering = filtering)
@@ -159,67 +188,22 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 )
                 else -> ScreenshotGrid(
                     items = results,
-                    onClick = { openImage(context, it) },
-                    onLongClick = { selected = it },
+                    selection = selection,
+                    onClick = { if (selecting) vm.toggleSelection(it.mediaId) else detail = it },
+                    onLongClick = { vm.toggleSelection(it.mediaId) },
                 )
             }
         }
     }
 
-    selected?.let { shot ->
-        OcrTextSheet(
+    detail?.let { shot ->
+        DetailSheet(
             shot = shot,
             query = query,
-            onOpen = { openImage(context, shot) },
-            onDismiss = { selected = null },
+            onShare = { shareImages(context, listOf(shot.uri)) },
+            onDelete = { requestDelete(listOf(shot)) },
+            onDismiss = { detail = null },
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun OcrTextSheet(shot: Screenshot, query: String, onOpen: () -> Unit, onDismiss: () -> Unit) {
-    val highlightColor = MaterialTheme.colorScheme.tertiaryContainer
-    val onHighlightColor = MaterialTheme.colorScheme.onTertiaryContainer
-    val annotated = remember(shot.text, query, highlightColor) {
-        buildAnnotatedString {
-            append(shot.text)
-            findHighlights(shot.text, searchTokens(query)).forEach { range ->
-                addStyle(
-                    SpanStyle(background = highlightColor, color = onHighlightColor, fontWeight = FontWeight.Bold),
-                    range.first,
-                    range.last + 1,
-                )
-            }
-        }
-    }
-    val date = remember(shot.dateTaken) {
-        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(shot.dateTaken))
-    }
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
-        ) {
-            Text(shot.displayName, style = MaterialTheme.typography.titleMedium)
-            Text(date, style = MaterialTheme.typography.bodySmall)
-            Box(
-                Modifier
-                    .weight(1f, fill = false)
-                    .padding(vertical = 16.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                if (shot.text.isBlank()) {
-                    Text("Aucun texte reconnu sur cette capture.", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    SelectionContainer { Text(annotated, style = MaterialTheme.typography.bodyMedium) }
-                }
-            }
-            Button(onClick = onOpen, modifier = Modifier.fillMaxWidth()) { Text("Ouvrir l'image") }
-        }
     }
 }
 
@@ -255,38 +239,6 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, filterin
 }
 
 @Composable
-private fun ScreenshotGrid(
-    items: List<Screenshot>,
-    onClick: (Screenshot) -> Unit,
-    onLongClick: (Screenshot) -> Unit,
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 110.dp),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        items(items, key = { it.mediaId }) { shot ->
-            AsyncImage(
-                model = Uri.parse(shot.uri),
-                contentDescription = shot.displayName,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.5f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .combinedClickable(
-                        onClick = { onClick(shot) },
-                        onLongClick = { onLongClick(shot) },
-                        onLongClickLabel = "Voir le texte reconnu",
-                    ),
-            )
-        }
-    }
-}
-
-@Composable
 private fun CenteredMessage(text: String, action: String? = null, onAction: () -> Unit = {}) {
     Box(
         Modifier
@@ -300,16 +252,5 @@ private fun CenteredMessage(text: String, action: String? = null, onAction: () -
                 Button(onClick = onAction, modifier = Modifier.padding(top = 16.dp)) { Text(action) }
             }
         }
-    }
-}
-
-private fun openImage(context: Context, shot: Screenshot) {
-    val intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(Uri.parse(shot.uri), "image/*")
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    try {
-        context.startActivity(intent)
-    } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "Aucune appli pour afficher l'image", Toast.LENGTH_SHORT).show()
     }
 }

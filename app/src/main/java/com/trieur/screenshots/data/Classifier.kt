@@ -39,7 +39,13 @@ object Classifier {
 
     private fun isTravel(t: String): Boolean = TRAVEL_WORDS.count { it.containsMatchIn(t) } >= 2
 
-    private fun isCode(t: String): Boolean = CODE_CONTEXT.containsMatchIn(t) && CODE_DIGITS.containsMatchIn(t)
+    private fun isCode(t: String): Boolean = hasCodeContext(t) && CODE_DIGITS.containsMatchIn(t)
+
+    /** [folded] = texte passé par foldText. */
+    internal fun hasCodeContext(folded: String): Boolean = CODE_CONTEXT.containsMatchIn(folded)
+
+    /** Suites de chiffres pouvant être un code (« 482913 », « 123 456 »). */
+    internal fun codeDigits(text: String): List<String> = CODE_DIGITS.findAll(text).map { it.value }.distinct().toList()
 
     private fun words(vararg w: String) = w.map { Regex("""(?<![\p{L}\p{N}])${Regex.escape(it)}(?![\p{L}\p{N}])""") }
 
