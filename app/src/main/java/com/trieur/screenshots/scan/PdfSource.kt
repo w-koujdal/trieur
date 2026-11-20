@@ -56,6 +56,7 @@ object PdfSource {
      * cachés (« .nomedia ») sont ignorés. Lève une exception si l'accès a été retiré.
      */
     fun list(context: Context, tree: Uri): List<PdfFile> {
+        if (tree.scheme == "file") return listFiles(tree)
         val out = mutableListOf<PdfFile>()
         val pending = ArrayDeque<String>().apply { add(DocumentsContract.getTreeDocumentId(tree)) }
         val projection = arrayOf(
@@ -83,6 +84,39 @@ object PdfSource {
                         }
                     }
                 }
+            }
+        }
+        return out
+    }
+
+    /** « Accès à tous les fichiers » accordé (Android 11+). */
+    fun hasAllFiles(): Boolean =
+        android.os.Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager()
+
+    /** Racine du stockage du téléphone (« /storage/emulated/0 »). */
+    val storageRoot: File get() = android.os.Environment.getExternalStorageDirectory()
+
+    /** Dossier lu directement (« accès à tous les fichiers ») : file:///storage/emulated/0/Download. */
+    fun fileTree(dir: File): String = Uri.fromFile(dir).toString()
+
+    /** Même parcours que [list], par le système de fichiers. */
+    private fun listFiles(tree: Uri): List<PdfFile> {
+        val rootDir = File(tree.path ?: error("chemin absent"))
+        if (!hasAllFiles() || rootDir.listFiles() == null) error("accès retiré")
+        val root = storageRoot.absolutePath
+        val out = mutableListOf<PdfFile>()
+        val pending = ArrayDeque<File>().apply { add(rootDir) }
+        while (pending.isNotEmpty()) {
+            for (f in pending.removeFirst().listFiles().orEmpty()) {
+                val name = f.name
+                if (name.startsWith(".")) continue
+                if (f.isDirectory) { pending.add(f); continue }
+                val ext = name.substringAfterLast('.', "").lowercase()
+                val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+                if (mime != null && (mime.startsWith("image/") || mime.startsWith("video/") || mime.startsWith("audio/"))) continue
+                val uri = Uri.fromFile(f)
+                out += PdfFile(stableId(uri.toString()), uri, name, f.lastModified(), tree.toString(), mime,
+                    f.absolutePath.removePrefix(root).trim('/'), f.length())
             }
         }
         return out

@@ -24,6 +24,11 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- « Accès à tous les fichiers », facultatif : seule façon de lire tout le dossier Download
+         (Android interdit de le choisir dans le sélecteur de dossier). -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
     <!-- Garde la tâche périodique d'indexation après un redémarrage du téléphone -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 

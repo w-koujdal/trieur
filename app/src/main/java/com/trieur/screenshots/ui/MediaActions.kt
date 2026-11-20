@@ -37,13 +37,20 @@ fun thumbnailModel(context: Context, shot: Screenshot): Any? = when (shot.source
     else -> Uri.parse(shot.uri)
 }
 
+/** Les fichiers lus directement (file://) passent par le FileProvider pour les autres applis. */
+fun shareableUri(context: Context, uri: String): Uri {
+    val u = Uri.parse(uri)
+    if (u.scheme != "file") return u
+    return androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", java.io.File(u.path!!))
+}
+
 fun openItem(context: Context, shot: Screenshot) {
-    start(context, Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(shot.uri), shot.mime), "ouvrir ce fichier")
+    start(context, Intent(Intent.ACTION_VIEW).setDataAndType(shareableUri(context, shot.uri), shot.mime), "ouvrir ce fichier")
 }
 
 fun shareItems(context: Context, shots: List<Screenshot>) {
     if (shots.isEmpty()) return
-    val list = ArrayList(shots.map { Uri.parse(it.uri) })
+    val list = ArrayList(shots.map { shareableUri(context, it.uri) })
     val type = shots.map { it.mime }.distinct().singleOrNull() ?: "*/*"
     val intent = if (list.size == 1) {
         Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, list[0])

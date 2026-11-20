@@ -33,6 +33,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.trieur.screenshots.data.Source
+import com.trieur.screenshots.scan.PdfSource
+import android.os.Environment
+import android.provider.Settings
+import java.io.File
 
 private val Source.help: String
     get() = when (this) {
@@ -46,7 +50,8 @@ private val Source.help: String
 
 /** « primary:Download/Factures » → « Download/Factures ». */
 private fun treeLabel(uri: String): String =
-    runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(uri)).substringAfter(':').ifEmpty { "Stockage" } }
+    if (uri.startsWith("file:")) (Uri.parse(uri).path.orEmpty().removePrefix(PdfSource.storageRoot.absolutePath).trim('/').ifEmpty { "Stockage" }) + " (accès complet)"
+    else runCatching { DocumentsContract.getTreeDocumentId(Uri.parse(uri)).substringAfter(':').ifEmpty { "Stockage" } }
         .getOrDefault(uri)
 
 /** Un interrupteur par source ; toute la ligne est cliquable. Au moins une source reste active. */
@@ -93,6 +98,11 @@ fun SettingsSheet(
             }
             onAddPdfTree(uri.toString())
         }
+    }
+    // Download entier : Android l'interdit dans le sélecteur, seul « accès à tous les fichiers » le permet.
+    val downloadTree = PdfSource.fileTree(File(PdfSource.storageRoot, Environment.DIRECTORY_DOWNLOADS))
+    val allFiles = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (PdfSource.hasAllFiles()) onAddPdfTree(downloadTree)
     }
     val version = remember(context) {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
@@ -151,6 +161,23 @@ fun SettingsSheet(
                 onClick = { pickFolder.launch(null) },
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             ) { Text("Ajouter un dossier") }
+            if (downloadTree !in pdfTrees && android.os.Build.VERSION.SDK_INT >= 30) {
+                OutlinedButton(
+                    onClick = {
+                        if (PdfSource.hasAllFiles()) onAddPdfTree(downloadTree)
+                        else allFiles.launch(
+                            Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + context.packageName)),
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                ) { Text("Lire tout Download") }
+                Text(
+                    "Android interdit de choisir Download en entier. Ce bouton demande « accès à tous les fichiers » : " +
+                        "l'appli lit alors Download directement. Rien ne sort du téléphone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                )
+            }
 
             HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
             devices()

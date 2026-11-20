@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="remote" path="remote/" />
+    <!-- Documents lus avec « accès à tous les fichiers », partagés aux autres applis. -->
+    <external-path name="stockage" path="." />
 </paths>
