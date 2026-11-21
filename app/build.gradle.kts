@@ -15,8 +15,8 @@ android {
         applicationId = "com.trieur.screenshots"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "1.1"
 
         // L'OCR embarque ~10 Mo de code natif par architecture. Seuls les téléphones ARM 64 bits
         // sont visés (dont le Galaxy S24) : sans ce filtre, x86, x86_64 et armeabi-v7a
