@@ -61,4 +61,12 @@ class DetectTest {
     fun timesAndPricesAreNotLinks() {
         assertTrue(detect("Il est 12.30, ça coûte 4.99 €").isEmpty())
     }
+
+    @Test
+    fun internationalPhoneNumbers() {
+        val dials = detect("Call (555) 013-4567 or +44 20 7946 0958, office 555-013-9999").filterIsInstance<Detected.Phone>().map { it.dial }
+        assertEquals(listOf("5550134567", "+442079460958", "5550139999"), dials)
+        // Dates, prix et codes ne sont pas des numéros.
+        assertTrue(detect("Order 2026-11-20 total $1,299.99, code 482913").none { it is Detected.Phone })
+    }
 }

@@ -329,7 +329,7 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, filterin
                 color = MaterialTheme.colorScheme.error,
             )
             filtering -> Text(
-                tr("$resultCount résultat(s) sur $indexed images", "$resultCount result(s) out of $indexed images"),
+                plural(resultCount, "$resultCount résultat sur $indexed images", "$resultCount résultats sur $indexed images", "1 result out of $indexed images", "$resultCount results out of $indexed images"),
                 style = MaterialTheme.typography.bodySmall,
             )
             else -> Text(tr("$indexed images indexées", "$indexed images indexed"), style = MaterialTheme.typography.bodySmall)
