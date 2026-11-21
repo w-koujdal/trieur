@@ -1,5 +1,8 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+import com.trieur.screenshots.plural
+
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -80,12 +83,12 @@ fun RemoteResults(state: MainViewModel.RemoteState, vm: MainViewModel) {
         if (state.loading) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.padding(end = 8.dp).width(16.dp).height(16.dp), strokeWidth = 2.dp)
-                Text("Recherche dans tes autres appareils…", style = MaterialTheme.typography.bodySmall)
+                Text(tr("Recherche dans tes autres appareils…", "Searching your other devices…"), style = MaterialTheme.typography.bodySmall)
             }
         }
         for (g in state.groups) {
             Text(
-                "${deviceIcon(g.peer.kind)} ${g.peer.name}" + if (g.error == null) " · ${g.hits.size} résultat${if (g.hits.size > 1) "s" else ""}" else "",
+                "${deviceIcon(g.peer.kind)} ${g.peer.name}" + if (g.error == null) " · " + plural(g.hits.size, "${g.hits.size} résultat", "${g.hits.size} résultats", "${g.hits.size} result", "${g.hits.size} results") else "",
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
             )
@@ -111,7 +114,7 @@ fun RemoteResults(state: MainViewModel.RemoteState, vm: MainViewModel) {
                     }
                 }
             }
-            if (g.hits.size > 8) Text("… et ${g.hits.size - 8} autres : précise la recherche", style = MaterialTheme.typography.bodySmall)
+            if (g.hits.size > 8) Text(tr("… et ${g.hits.size - 8} autres : précise la recherche", "… and ${g.hits.size - 8} more: refine your search"), style = MaterialTheme.typography.bodySmall)
         }
     }
 
@@ -119,17 +122,17 @@ fun RemoteResults(state: MainViewModel.RemoteState, vm: MainViewModel) {
         AlertDialog(
             onDismissRequest = { picked = null },
             title = { Text(hit.name) },
-            text = { Text("Sur ${peer.name} :\n${hit.location}") },
+            text = { Text(tr("Sur ${peer.name} :", "On ${peer.name}:") + "\n${hit.location}") },
             confirmButton = {
                 TextButton(onClick = {
                     picked = null
                     busy = hit.id
                     scope.launch {
                         vm.fetchRemote(peer, hit).onSuccess { openLocal(context, it) }
-                            .onFailure { Toast.makeText(context, "Transfert impossible : ${it.message}", Toast.LENGTH_LONG).show() }
+                            .onFailure { Toast.makeText(context, tr("Transfert impossible : ", "Transfer failed: ") + it.message, Toast.LENGTH_LONG).show() }
                         busy = null
                     }
-                }) { Text("Ouvrir ici") }
+                }) { Text(tr("Ouvrir ici", "Open here")) }
             },
             dismissButton = {
                 TextButton(onClick = {
@@ -137,10 +140,10 @@ fun RemoteResults(state: MainViewModel.RemoteState, vm: MainViewModel) {
                     busy = hit.id
                     scope.launch {
                         vm.fetchRemote(peer, hit).onSuccess { saveToDownloads(context, it) }
-                            .onFailure { Toast.makeText(context, "Transfert impossible : ${it.message}", Toast.LENGTH_LONG).show() }
+                            .onFailure { Toast.makeText(context, tr("Transfert impossible : ", "Transfer failed: ") + it.message, Toast.LENGTH_LONG).show() }
                         busy = null
                     }
-                }) { Text("Enregistrer dans Téléchargements") }
+                }) { Text(tr("Enregistrer dans Téléchargements", "Save to Downloads")) }
             },
         )
     }
@@ -160,7 +163,7 @@ private fun openLocal(context: Context, f: File) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", f)
     val i = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mimeOf(f)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     runCatching { context.startActivity(Intent.createChooser(i, f.name)) }
-        .onFailure { Toast.makeText(context, "Aucune appli pour ouvrir ce fichier", Toast.LENGTH_LONG).show() }
+        .onFailure { Toast.makeText(context, tr("Aucune appli pour ouvrir ce fichier", "No app to open this file"), Toast.LENGTH_LONG).show() }
 }
 
 /** Copie dans Téléchargements/Trieur (visible dans Mes fichiers). */
@@ -173,11 +176,11 @@ private fun saveToDownloads(context: Context, f: File) {
     }
     val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
     if (uri == null) {
-        Toast.makeText(context, "Enregistrement impossible", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, tr("Enregistrement impossible", "Couldn't save the file"), Toast.LENGTH_LONG).show()
         return
     }
     context.contentResolver.openOutputStream(uri)?.use { out -> f.inputStream().use { it.copyTo(out) } }
-    Toast.makeText(context, "Enregistré dans Téléchargements › Trieur", Toast.LENGTH_LONG).show()
+    Toast.makeText(context, tr("Enregistré dans Téléchargements › Trieur", "Saved to Downloads › Trieur"), Toast.LENGTH_LONG).show()
 }
 
 /** Réglages « Mes appareils » : visibilité, code, appareils appairés, ajout d'un PC. */
@@ -187,10 +190,9 @@ fun DevicesSection(vm: MainViewModel) {
     val visible by vm.visible.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     Column(Modifier.padding(horizontal = 24.dp)) {
-        Text("Mes appareils (même Wi-Fi)", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+        Text(tr("Mes appareils (même Wi-Fi)", "My devices (same Wi-Fi)"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
         Text(
-            "Cherche aussi dans ton PC (avec Trieur PC) et laisse ton PC chercher ici. Tout passe par ton réseau " +
-                "local, jamais par Internet, et seulement entre appareils appairés avec un code.",
+            tr("Cherche aussi dans ton PC (avec Trieur PC) et laisse ton PC chercher ici. Tout passe par ton réseau local, jamais par Internet, et seulement entre appareils appairés avec un code.", "Also search your PC (with Trieur PC) and let your PC search here. Everything goes through your local network, never the internet, and only between devices paired with a code."),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(vertical = 4.dp),
         )
@@ -199,21 +201,21 @@ fun DevicesSection(vm: MainViewModel) {
                 headlineContent = { Text("${deviceIcon(p.kind)} ${p.name}") },
                 supportingContent = { Text(p.host ?: "", style = MaterialTheme.typography.bodySmall) },
                 trailingContent = {
-                    IconButton(onClick = { vm.unpair(p.id) }) { Icon(Icons.Filled.Close, contentDescription = "Oublier ${p.name}") }
+                    IconButton(onClick = { vm.unpair(p.id) }) { Icon(Icons.Filled.Close, contentDescription = tr("Oublier ", "Forget ") + p.name) }
                 },
             )
         }
-        OutlinedButton(onClick = { adding = true }, modifier = Modifier.padding(vertical = 4.dp)) { Text("Ajouter un PC") }
+        OutlinedButton(onClick = { adding = true }, modifier = Modifier.padding(vertical = 4.dp)) { Text(tr("Ajouter un PC", "Add a PC")) }
         Row(
             Modifier.fillMaxWidth().toggleable(value = visible, role = Role.Switch, onValueChange = vm::setVisible).padding(top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Visible sur le Wi-Fi", style = MaterialTheme.typography.bodyLarge)
+                Text(tr("Visible sur le Wi-Fi", "Visible on Wi-Fi"), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    if (visible) "Ton PC peut chercher ici. Code pour l'appairer : ${vm.pairCode().chunked(3).joinToString(" ")}" +
-                        Lan.localAddresses().firstOrNull()?.let { "\nAdresse : $it" }.orEmpty()
-                    else "Pour chercher dans ce téléphone depuis ton PC.",
+                    if (visible) tr("Ton PC peut chercher ici. Code pour l'appairer : ", "Your PC can search here. Pairing code: ") + vm.pairCode().chunked(3).joinToString(" ") +
+                        Lan.localAddresses().firstOrNull()?.let { tr("\nAdresse : ", "\nAddress: ") + it }.orEmpty()
+                    else tr("Pour chercher dans ce téléphone depuis ton PC.", "To search this phone from your PC."),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -237,7 +239,7 @@ private fun PairDialog(vm: MainViewModel, onClose: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(if (target == null) "Ajouter un PC" else "Code affiché sur ${target!!.name}") },
+        title = { Text(if (target == null) tr("Ajouter un PC", "Add a PC") else tr("Code affiché sur ", "Code shown on ") + target!!.name) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val t = target
@@ -246,10 +248,10 @@ private fun PairDialog(vm: MainViewModel, onClose: () -> Unit) {
                         found == null -> Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
-                            Text("Recherche sur le Wi-Fi…")
+                            Text(tr("Recherche sur le Wi-Fi…", "Searching on Wi-Fi…"))
                         }
                         found!!.isEmpty() -> Text(
-                            "Aucun PC trouvé. Lance Trieur PC sur l'ordinateur (même Wi-Fi), ou saisis l'adresse qu'il affiche.",
+                            tr("Aucun PC trouvé. Lance Trieur PC sur l'ordinateur (même Wi-Fi), ou saisis l'adresse qu'il affiche.", "No PC found. Start Trieur PC on the computer (same Wi-Fi), or type the address it shows."),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         else -> found!!.forEach { f ->
@@ -258,14 +260,14 @@ private fun PairDialog(vm: MainViewModel, onClose: () -> Unit) {
                     }
                     OutlinedTextField(
                         value = ip, onValueChange = { ip = it }, singleLine = true,
-                        label = { Text("Ou adresse du PC (ex. 192.168.1.20)") },
+                        label = { Text(tr("Ou adresse du PC (ex. 192.168.1.20)", "Or the PC's address (e.g. 192.168.1.20)")) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     )
                 } else {
-                    Text("Dans Trieur PC, le code est affiché dans « Appairer un téléphone ».", style = MaterialTheme.typography.bodySmall)
+                    Text(tr("Dans Trieur PC, le code est affiché dans « Appairer un téléphone ».", "In Trieur PC, the code is shown under “Pair a phone”."), style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(
                         value = code, onValueChange = { code = it.filter(Char::isDigit).take(6) }, singleLine = true,
-                        label = { Text("Code à 6 chiffres") },
+                        label = { Text(tr("Code à 6 chiffres", "6-digit code")) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     )
                 }
@@ -281,15 +283,15 @@ private fun PairDialog(vm: MainViewModel, onClose: () -> Unit) {
                     scope.launch {
                         val t = target
                         if (t == null) {
-                            runCatching { vm.probe(ip) }.onSuccess { target = it }.onFailure { error = "Pas de Trieur PC à cette adresse" }
+                            runCatching { vm.probe(ip) }.onSuccess { target = it }.onFailure { error = tr("Pas de Trieur PC à cette adresse", "No Trieur PC at this address") }
                         } else {
-                            vm.pair(t, code).onSuccess { onClose() }.onFailure { error = it.message ?: "Échec" }
+                            vm.pair(t, code).onSuccess { onClose() }.onFailure { error = it.message ?: tr("Échec", "Failed") }
                         }
                         working = false
                     }
                 },
-            ) { Text(if (target == null) "Se connecter" else "Appairer") }
+            ) { Text(if (target == null) tr("Se connecter", "Connect") else tr("Appairer", "Pair")) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Annuler") } },
+        dismissButton = { TextButton(onClick = onClose) { Text(tr("Annuler", "Cancel")) } },
     )
 }

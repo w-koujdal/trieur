@@ -60,4 +60,12 @@ class ClassifierTest {
         assertEquals(Category.WEB, classify("Les meilleures recettes de crêpes", "Chrome"))
         assertEquals(Category.OTHER, classify("Paramètres Wi-Fi Bluetooth", "Settings"))
     }
+
+    @Test
+    fun englishScreenshots() {
+        assertEquals(Category.PURCHASE, classify("Order summary\nSubtotal \$49.99\nShipping free\nTotal \$49.99", "Chrome"))
+        assertEquals(Category.TRAVEL, classify("Boarding pass\nFlight BA304\nGate 12 Seat 14C\nDeparture 08:15"))
+        assertEquals(Category.CODE, classify("Your verification code is 482913. Do not share it.", "Messages"))
+        assertEquals(Category.PLACE, classify("Meet me at 221 Baker Street at 7pm", "Maps"))
+    }
 }

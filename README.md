@@ -1,5 +1,29 @@
 # Trieur
 
+**English** · [Français](#français)
+
+Android app that **finds any image by what's inside it**: screenshots, downloads, gallery, PDFs and
+Office documents. Text is read (OCR) and photos are recognized **on the phone**. Free, no ads, no
+account, **nothing is sent to the internet**. Interface in English and French (follows the phone's language).
+
+![Trieur screenshots](docs/screenshots.png)
+
+- **Full-text search** in your images and documents, accent- and case-insensitive, matching words highlighted
+- **Search photos by content**: "dog", "beach", "car"… (on-device image labels)
+- **Automatic sorting**: purchases, travel, codes, places, documents, conversations, social media, people, animals, food…
+- **Actions**: links, emails, phone numbers and codes found in an image become buttons
+- **Guided cleanup**: duplicates (perceptual hash), verification codes older than a day, old screenshots per app
+- **File location** shown for each result ("Phone › Download › CV.pdf")
+- **Optional PC link** with [Trieur PC](https://github.com/w-koujdal/trieur-pc): search your PC from the phone
+  and vice versa over your local Wi-Fi, paired with a code, end-to-end encrypted (ECDH + AES-GCM)
+
+**Install**: download `Trieur.apk` from the [latest release](https://github.com/w-koujdal/trieur/releases/latest)
+and open it on the phone (Android 10+). MIT license.
+
+---
+
+## Français
+
 Appli Android qui **retrouve n'importe quelle image par ce qu'elle contient** : captures d'écran,
 téléchargements, galerie et PDF. Le texte est lu (OCR) et les photos reconnues directement sur le
 téléphone. Gratuit, sans pub, sans compte : **rien n'est envoyé sur Internet**.

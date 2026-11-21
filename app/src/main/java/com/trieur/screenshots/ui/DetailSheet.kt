@@ -1,5 +1,8 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+import com.trieur.screenshots.data.appLabel
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,7 +92,7 @@ fun DetailSheet(
     val subtitle = remember(shot) {
         val date = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(shot.dateTaken))
         val where = Source.fromName(shot.source).label
-        listOfNotNull(where, shot.sourceApp, date).joinToString(" · ")
+        listOfNotNull(where, shot.sourceApp?.let(::appLabel), date).joinToString(" · ")
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -111,7 +114,7 @@ fun DetailSheet(
             val seen = remember(shot.labels) { Labels.display(Labels.decode(shot.labels)).take(6) }
             if (seen.isNotEmpty()) {
                 Text(
-                    "Sur l'image : " + seen.joinToString(" · "),
+                    tr("Sur l'image : ", "In the image: ") + seen.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp),
                 )
@@ -122,13 +125,13 @@ fun DetailSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 12.dp),
             ) {
-                Button(onClick = { openItem(context, shot) }, modifier = Modifier.weight(1f)) { Text("Ouvrir") }
+                Button(onClick = { openItem(context, shot) }, modifier = Modifier.weight(1f)) { Text(tr("Ouvrir", "Open")) }
                 OutlinedButton(onClick = onShare) {
-                    Icon(Icons.Filled.Share, contentDescription = "Partager")
+                    Icon(Icons.Filled.Share, contentDescription = tr("Partager", "Share"))
                 }
                 if (canDelete && !Source.fromName(shot.source).isFile) {
                     OutlinedButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Mettre à la corbeille")
+                        Icon(Icons.Filled.Delete, contentDescription = tr("Mettre à la corbeille", "Move to trash"))
                     }
                 }
             }
@@ -157,7 +160,7 @@ fun DetailSheet(
                     .verticalScroll(rememberScrollState())
             ) {
                 if (shot.text.isBlank()) {
-                    Text("Aucun texte reconnu sur cette image.", style = MaterialTheme.typography.bodyMedium)
+                    Text(tr("Aucun texte reconnu sur cette image.", "No text found in this image."), style = MaterialTheme.typography.bodyMedium)
                 } else {
                     SelectionContainer { Text(annotated, style = MaterialTheme.typography.bodyMedium) }
                 }
@@ -175,13 +178,13 @@ private fun CategoryPicker(shot: Screenshot, onChange: (Category?) -> Unit, modi
         FilterChip(
             selected = shot.categoryLocked,
             onClick = { open = true },
-            label = { Text(if (shot.categoryLocked) "${current.label} (choisie)" else current.label) },
-            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = "Changer de catégorie") },
+            label = { Text(if (shot.categoryLocked) "${current.label} " + tr("(choisie)", "(chosen)") else current.label) },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = tr("Changer de catégorie", "Change category")) },
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (shot.categoryLocked) {
                 DropdownMenuItem(
-                    text = { Text("Automatique") },
+                    text = { Text(tr("Automatique", "Automatic")) },
                     onClick = { onChange(null); open = false },
                 )
                 HorizontalDivider()

@@ -1,5 +1,7 @@
 package com.trieur.screenshots.lan
 
+import com.trieur.screenshots.tr
+
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -94,7 +96,7 @@ class LanStore(context: Context) {
     val deviceId: String = prefs.getString("id", null) ?: Lan.randomHex(8).also { prefs.edit().putString("id", it).apply() }
 
     var name: String
-        get() = prefs.getString("name", null) ?: "Téléphone (${Build.MODEL})"
+        get() = prefs.getString("name", null) ?: (tr("Téléphone", "Phone") + " (${Build.MODEL})")
         set(v) = prefs.edit().putString("name", v).apply()
 
     var visible: Boolean
@@ -167,13 +169,13 @@ class LanClient(private val context: Context, private val store: LanStore) {
 
     /** Appareil saisi à la main (adresse IP affichée sur le PC) : on lui demande qui il est. */
     fun probe(host: String, port: Int = Lan.HTTP_PORT): Found {
-        require(Lan.isPrivateHost(host)) { "Adresse hors du réseau local" }
+        require(Lan.isPrivateHost(host)) { tr("Adresse hors du réseau local", "Address outside the local network") }
         val o = JSONObject(get("http://$host:$port/api/hello").decodeToString())
         return Found(o.getString("id"), o.optString("name", host), o.optString("kind", "pc"), host, o.optInt("port", port))
     }
 
     fun pair(target: Found, code: String): Peer {
-        require(Lan.isPrivateHost(target.host)) { "Adresse hors du réseau local" }
+        require(Lan.isPrivateHost(target.host)) { tr("Adresse hors du réseau local", "Address outside the local network") }
         val keys = LanCrypto.newKeyPair()
         val body = JSONObject().put("code", code).put("id", store.deviceId).put("name", store.name).put("kind", "phone")
             .put("pub", LanCrypto.publicKey(keys)).put("v", Lan.VERSION)
@@ -185,12 +187,12 @@ class LanClient(private val context: Context, private val store: LanStore) {
         }
         when (c.responseCode) {
             200 -> Unit
-            403 -> error("Code incorrect")
-            429 -> error("Trop d'essais : attends une minute")
-            else -> error("Refusé (${c.responseCode})")
+            403 -> error(tr("Code incorrect", "Wrong code"))
+            429 -> error(tr("Trop d'essais : attends une minute", "Too many attempts: wait a minute"))
+            else -> error(tr("Refusé", "Refused") + " (${c.responseCode})")
         }
         val o = JSONObject(c.inputStream.use { it.readBytes().decodeToString() })
-        val theirPub = o.optString("pub").ifBlank { error("Mets à jour Trieur PC (version trop ancienne)") }
+        val theirPub = o.optString("pub").ifBlank { error(tr("Mets à jour Trieur PC (version trop ancienne)", "Update Trieur PC (version too old)")) }
         val key = LanCrypto.encodeKey(LanCrypto.sharedKey(keys, theirPub))
         val peer = Peer(o.getString("id"), o.getString("name"), o.optString("kind", target.kind), key, target.host, target.port)
         store.upsert(peer)
@@ -206,7 +208,7 @@ class LanClient(private val context: Context, private val store: LanStore) {
             Thread { results[i] = searchWithRetry(peer, query) }.apply { start() }
         }
         threads.forEach { it.join(10_000) }
-        return results.mapIndexed { i, r -> r ?: RemoteGroup(peers[i], emptyList(), "pas de réponse") }
+        return results.mapIndexed { i, r -> r ?: RemoteGroup(peers[i], emptyList(), tr("pas de réponse", "no response")) }
     }
 
     private fun searchWithRetry(peer: Peer, query: String): RemoteGroup = try {
@@ -217,9 +219,9 @@ class LanClient(private val context: Context, private val store: LanStore) {
         if (again != null) {
             peer.host = again.host; peer.port = again.port
             store.upsert(peer)
-            runCatching { RemoteGroup(peer, search(peer, query), null) }.getOrElse { RemoteGroup(peer, emptyList(), "injoignable") }
+            runCatching { RemoteGroup(peer, search(peer, query), null) }.getOrElse { RemoteGroup(peer, emptyList(), tr("injoignable", "unreachable")) }
         } else {
-            RemoteGroup(peer, emptyList(), if (e.message == "401") "n'est plus appairé" else "injoignable : même Wi-Fi ? Trieur PC lancé ?")
+            RemoteGroup(peer, emptyList(), if (e.message == "401") tr("n'est plus appairé", "no longer paired") else tr("injoignable : même Wi-Fi ? Trieur PC lancé ?", "unreachable: same Wi-Fi? Is Trieur PC running?"))
         }
     }
 

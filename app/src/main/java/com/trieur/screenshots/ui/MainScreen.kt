@@ -1,5 +1,8 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+import com.trieur.screenshots.plural
+
 import android.app.Activity
 import android.widget.Toast
 import com.trieur.screenshots.data.Source
@@ -116,7 +119,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
         // Android ne permet pas de mettre un PDF (fichier hors MediaStore) à la corbeille d'ici.
         val media = shots.filter { !Source.fromName(it.source).isFile }
         if (media.size < shots.size) {
-            Toast.makeText(context, "Les PDF restent en place : supprime-les depuis Mes fichiers", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, tr("Les PDF restent en place : supprime-les depuis Mes fichiers", "PDFs stay in place: delete them from your Files app"), Toast.LENGTH_LONG).show()
         }
         val sender = deleteRequest(context, media.map { it.uri }) ?: return
         pendingDelete = media.map { it.mediaId }.toLongArray()
@@ -155,7 +158,7 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 TopAppBar(
                     // Juste le nombre : tient sur une ligne même en grande police (lu « 6 sélectionnées »).
                     title = {
-                        val label = "${selection.size} sélectionnée${if (selection.size > 1) "s" else ""}"
+                        val label = plural(selection.size, "${selection.size} sélectionnée", "${selection.size} sélectionnées", "${selection.size} selected", "${selection.size} selected")
                         Text(
                             "${selection.size}",
                             maxLines = 1,
@@ -164,17 +167,17 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     },
                     navigationIcon = {
                         IconButton(onClick = vm::clearSelection) {
-                            Icon(Icons.Filled.Close, contentDescription = "Annuler la sélection")
+                            Icon(Icons.Filled.Close, contentDescription = tr("Annuler la sélection", "Cancel selection"))
                         }
                     },
                     actions = {
-                        TextButton(onClick = { vm.toggleSelectAll(results.map { it.mediaId }) }) { Text("Tout") }
+                        TextButton(onClick = { vm.toggleSelectAll(results.map { it.mediaId }) }) { Text(tr("Tout", "All")) }
                         IconButton(onClick = { shareItems(context, selectedShots) }) {
-                            Icon(Icons.Filled.Share, contentDescription = "Partager la sélection")
+                            Icon(Icons.Filled.Share, contentDescription = tr("Partager la sélection", "Share selection"))
                         }
                         if (canDelete) {
                             IconButton(onClick = { requestDelete(selectedShots) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Mettre la sélection à la corbeille")
+                                Icon(Icons.Filled.Delete, contentDescription = tr("Mettre la sélection à la corbeille", "Move selection to trash"))
                             }
                         }
                     },
@@ -187,15 +190,15 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                     title = { Text("Trieur") },
                     actions = {
                         IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Sources")
+                            Icon(Icons.Filled.Settings, contentDescription = tr("Réglages", "Settings"))
                         }
                         IconButton(onClick = { showCleanup = true }) {
                             BadgedBox(badge = { if (suggestions.isNotEmpty()) Badge { Text("${suggestions.size}") } }) {
-                                Icon(Icons.Filled.Build, contentDescription = "Nettoyage")
+                                Icon(Icons.Filled.Build, contentDescription = tr("Nettoyage", "Cleanup"))
                             }
                         }
                         IconButton(onClick = ::scanOrAsk, enabled = !scan.running) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Rescanner")
+                            Icon(Icons.Filled.Refresh, contentDescription = tr("Rescanner", "Rescan"))
                         }
                     },
                 )
@@ -213,12 +216,12 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Rechercher un mot", maxLines = 1) },
+                placeholder = { Text(tr("Rechercher un mot", "Search for a word"), maxLines = 1) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { vm.onQueryChange("") }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Effacer")
+                            Icon(Icons.Filled.Clear, contentDescription = tr("Effacer", "Clear"))
                         }
                     }
                 },
@@ -247,16 +250,16 @@ fun MainScreen(vm: MainViewModel = viewModel()) {
                 results.isEmpty() && filtering && hasRemote -> Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 ) {
-                    Text("Rien sur ce téléphone.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                    Text(tr("Rien sur ce téléphone.", "Nothing on this phone."), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                     RemoteResults(remote, vm)
                 }
                 results.isEmpty() && filtering -> CenteredMessage(
-                    if (query.isNotBlank()) "Rien ne contient « $query » avec ces filtres."
-                    else "Rien avec ces filtres."
+                    if (query.isNotBlank()) tr("Rien ne contient « $query » avec ces filtres.", "Nothing contains “$query” with these filters.")
+                    else tr("Rien avec ces filtres.", "Nothing matches these filters.")
                 )
                 results.isEmpty() && !scan.running -> CenteredMessage(
-                    "Aucune image indexée pour l'instant.",
-                    action = "Scanner",
+                    tr("Aucune image indexée pour l'instant.", "No images indexed yet."),
+                    action = tr("Scanner", "Scan"),
                     onAction = ::scanOrAsk,
                 )
                 else -> ScreenshotGrid(
@@ -308,7 +311,7 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, filterin
     Column(Modifier.padding(horizontal = 16.dp)) {
         when {
             scan.running && scan.total > 0 -> {
-                Text("Lecture du texte… ${scan.done} / ${scan.total}", style = MaterialTheme.typography.bodySmall)
+                Text(tr("Lecture du texte… ${scan.done} / ${scan.total}", "Reading text… ${scan.done} / ${scan.total}"), style = MaterialTheme.typography.bodySmall)
                 LinearProgressIndicator(
                     progress = { scan.done.toFloat() / scan.total },
                     modifier = Modifier
@@ -317,19 +320,19 @@ private fun StatusLine(scan: ScanState, indexed: Int, resultCount: Int, filterin
                 )
             }
             scan.running -> {
-                Text("Recherche des captures…", style = MaterialTheme.typography.bodySmall)
+                Text(tr("Recherche des captures…", "Looking for screenshots…"), style = MaterialTheme.typography.bodySmall)
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 4.dp))
             }
             scan.error != null -> Text(
-                "Erreur pendant le scan : ${scan.error}",
+                tr("Erreur pendant le scan : ${scan.error}", "Scan error: ${scan.error}"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
             filtering -> Text(
-                "$resultCount résultat(s) sur $indexed images",
+                tr("$resultCount résultat(s) sur $indexed images", "$resultCount result(s) out of $indexed images"),
                 style = MaterialTheme.typography.bodySmall,
             )
-            else -> Text("$indexed images indexées", style = MaterialTheme.typography.bodySmall)
+            else -> Text(tr("$indexed images indexées", "$indexed images indexed"), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

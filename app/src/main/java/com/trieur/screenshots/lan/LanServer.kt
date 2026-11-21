@@ -1,5 +1,7 @@
 package com.trieur.screenshots.lan
 
+import com.trieur.screenshots.tr
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -270,20 +272,20 @@ class LanService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Visible sur le Wi-Fi", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("Visible sur le Wi-Fi", "Visible on Wi-Fi"), NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val store = LanStore(this)
         val n: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_lan)
-            .setContentTitle("Trieur visible sur le Wi-Fi")
-            .setContentText("Tes appareils appairés peuvent chercher ici · code ${store.pairCode}")
+            .setContentTitle(tr("Trieur visible sur le Wi-Fi", "Trieur visible on Wi-Fi"))
+            .setContentText(tr("Tes appareils appairés peuvent chercher ici · code ", "Your paired devices can search here · code ") + store.pairCode)
             .setContentIntent(open)
             .setOngoing(true)
             // Écran verrouillé : notification visible, mais sans le code d'appairage.
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(
                 NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_lan)
-                    .setContentTitle("Trieur visible sur le Wi-Fi").build(),
+                    .setContentTitle(tr("Trieur visible sur le Wi-Fi", "Trieur visible on Wi-Fi")).build(),
             )
             .build()
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE) else startForeground(ID, n)

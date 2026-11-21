@@ -1,5 +1,7 @@
 package com.trieur.screenshots.data
 
+import com.trieur.screenshots.tr
+
 import java.util.concurrent.TimeUnit
 
 /** Lot de captures proposé au nettoyage. [ids] = captures à présélectionner. */
@@ -9,6 +11,9 @@ private val DAY = TimeUnit.DAYS.toMillis(1)
 
 /** Nom donné par [Classifier.sourceApp] au dossier DCIM/Camera. */
 const val CAMERA_APP = "Appareil photo"
+
+/** Nom d'appli à afficher : [CAMERA_APP] est stocké en français, traduit à l'affichage. */
+fun appLabel(app: String): String = if (app == CAMERA_APP) tr("Appareil photo", "Camera") else app
 
 /**
  * Propositions de nettoyage, de la plus évidente à la moins évidente :
@@ -22,11 +27,11 @@ fun cleanupSuggestions(all: List<Screenshot>, now: Long, minPerApp: Int = 5): Li
 
     candidates.filter { it.category == Category.CODE.name && now - it.dateTaken > DAY }
         .takeIf { it.isNotEmpty() }
-        ?.let { out += Suggestion("codes", "Codes de vérification", "${it.size} code(s) de plus d'un jour, sans doute expirés", it.ids()) }
+        ?.let { out += Suggestion("codes", tr("Codes de vérification", "Verification codes"), tr("${it.size} code(s) de plus d'un jour, sans doute expirés", "${it.size} code(s) older than a day, probably expired"), it.ids()) }
 
     val extraCopies = Duplicates.groups(candidates).flatMap { it.drop(1) }
     if (extraCopies.isNotEmpty()) {
-        out += Suggestion("doublons", "Doublons", "${extraCopies.size} copie(s) en trop, la plus récente est gardée", extraCopies.ids())
+        out += Suggestion("doublons", tr("Doublons", "Duplicates"), tr("${extraCopies.size} copie(s) en trop, la plus récente est gardée", "${extraCopies.size} extra copy(ies), the most recent one is kept"), extraCopies.ids())
     }
 
     // Jamais les photos de l'appareil photo : ce sont des souvenirs, pas du désordre.
@@ -35,12 +40,12 @@ fun cleanupSuggestions(all: List<Screenshot>, now: Long, minPerApp: Int = 5): Li
         .filterValues { it.size >= minPerApp }
         .entries.sortedByDescending { it.value.size }
         .forEach { (app, shots) ->
-            out += Suggestion("vieux:$app", "$app : plus de 3 mois", "${shots.size} capture(s) anciennes", shots.ids())
+            out += Suggestion("vieux:$app", tr("$app : plus de 3 mois", "$app: older than 3 months"), tr("${shots.size} capture(s) anciennes", "${shots.size} old screenshot(s)"), shots.ids())
         }
 
     candidates.filter { it.category == Category.NO_TEXT.name }
         .takeIf { it.isNotEmpty() }
-        ?.let { out += Suggestion("sans-texte", "Captures sans texte", "${it.size} capture(s) où aucun texte n'a été lu", it.ids()) }
+        ?.let { out += Suggestion("sans-texte", tr("Captures sans texte", "Screenshots without text"), tr("${it.size} capture(s) où aucun texte n'a été lu", "${it.size} screenshot(s) where no text was found"), it.ids()) }
 
     return out
 }

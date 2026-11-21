@@ -1,5 +1,7 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,18 +52,18 @@ fun OnboardingScreen(
         ) {
             Text("Trieur", style = MaterialTheme.typography.displaySmall)
             Text(
-                "Retrouve n'importe quelle image par ce qu'elle contient.",
+                tr("Retrouve n'importe quelle image par ce qu'elle contient.", "Find any image by what's in it."),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
             )
 
-            Point(Icons.Filled.Search, "Cherche un mot", "Le texte de tes captures, photos de documents et tickets est lu automatiquement.")
-            Point(Icons.Filled.Star, "Tri automatique", "Achats, voyages, codes, conversations, personnes, animaux, nourriture…")
-            Point(Icons.Filled.Build, "Nettoyage guidé", "Doublons, codes expirés, vieilles captures : vérifie et mets à la corbeille.")
-            Point(Icons.Filled.Lock, "100 % sur ton téléphone", "L'appli n'a pas accès à Internet. Rien n'est envoyé, jamais.")
+            Point(Icons.Filled.Search, tr("Cherche un mot", "Search for a word"), tr("Le texte de tes captures, photos de documents et tickets est lu automatiquement.", "The text in your screenshots, document photos and receipts is read automatically."))
+            Point(Icons.Filled.Star, tr("Tri automatique", "Automatic sorting"), tr("Achats, voyages, codes, conversations, personnes, animaux, nourriture…", "Purchases, travel, codes, conversations, people, animals, food…"))
+            Point(Icons.Filled.Build, tr("Nettoyage guidé", "Guided cleanup"), tr("Doublons, codes expirés, vieilles captures : vérifie et mets à la corbeille.", "Duplicates, expired codes, old screenshots: review and move to the trash."))
+            Point(Icons.Filled.Lock, tr("100 % sur ton téléphone", "100% on your phone"), tr("La lecture se fait sur le téléphone. Rien n'est envoyé sur Internet, jamais.", "Everything is read on the phone. Nothing is ever sent to the internet."))
 
             Text(
-                "Où chercher",
+                tr("Où chercher", "Where to look"),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(top = 16.dp),
             )
@@ -69,8 +71,7 @@ fun OnboardingScreen(
 
             if (denied) {
                 Text(
-                    "Sans accès à tes images, l'appli ne peut rien lire. Tu peux aussi l'autoriser dans " +
-                        "Paramètres → Applis → Trieur → Autorisations → Photos et vidéos.",
+                    tr("Sans accès à tes images, l'appli ne peut rien lire. Tu peux aussi l'autoriser dans Paramètres → Applis → Trieur → Autorisations → Photos et vidéos.", "Without access to your images, the app can't read anything. You can also allow it in Settings → Apps → Trieur → Permissions → Photos and videos."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 12.dp),
@@ -79,7 +80,7 @@ fun OnboardingScreen(
 
             Spacer(Modifier.height(24.dp))
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)) {
-                Text("Autoriser l'accès aux images et commencer")
+                Text(tr("Autoriser l'accès aux images et commencer", "Allow access to images and start"))
             }
         }
     }

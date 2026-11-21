@@ -327,10 +327,10 @@ object Labels {
             .distinct()
             .joinToString(" ")
 
-    /** Libellés français à afficher (ou anglais à défaut), du plus sûr au moins sûr. */
+    /** Libellés à afficher (français sur un téléphone en français, sinon ceux du modèle), du plus sûr au moins sûr. */
     fun display(labels: List<Label>): List<String> =
         labels.sortedByDescending { it.confidence }
-            .map { INFO[it.name]?.french?.substringBefore(' ') ?: it.name.lowercase() }
+            .map { (if (com.trieur.screenshots.isFrench) INFO[it.name]?.french?.substringBefore(' ') else null) ?: it.name.lowercase() }
             .distinct()
 
     /** Étiquette du modèle et sa confiance (0..1). */

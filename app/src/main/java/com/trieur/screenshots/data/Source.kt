@@ -1,17 +1,21 @@
 package com.trieur.screenshots.data
 
+import com.trieur.screenshots.tr
+
 /** D'où vient une image, d'après son dossier. Stockée en base par son [name]. */
-enum class Source(val label: String) {
-    SCREENSHOT("Captures"),
-    DOWNLOAD("Téléchargements"),
+enum class Source(private val fr: String, private val en: String) {
+    SCREENSHOT("Captures", "Screenshots"),
+    DOWNLOAD("Téléchargements", "Downloads"),
     /** Tout le reste : appareil photo, images reçues ou enregistrées depuis les applis. */
-    GALLERY("Galerie"),
+    GALLERY("Galerie", "Gallery"),
 
     /** PDF des dossiers choisis dans les réglages (pas une source du MediaStore). */
-    PDF("PDF"),
+    PDF("PDF", "PDF"),
 
     /** Autres documents de ces dossiers (Word, texte, tableurs…) : nom et texte quand il se lit. */
-    DOC("Documents");
+    DOC("Documents", "Documents");
+
+    val label: String get() = tr(fr, en)
 
     /** Fichier lu dans un dossier choisi (et non une image du MediaStore). */
     val isFile get() = this == PDF || this == DOC

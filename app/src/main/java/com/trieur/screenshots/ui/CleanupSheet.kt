@@ -1,5 +1,7 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,13 +33,13 @@ fun CleanupSheet(suggestions: List<Suggestion>, onPick: (Suggestion) -> Unit, on
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                "Nettoyage",
+                tr("Nettoyage", "Cleanup"),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
             Text(
-                if (suggestions.isEmpty()) "Rien à nettoyer pour l'instant."
-                else "Touche un lot : ses images seront sélectionnées, tu vérifies puis tu mets à la corbeille.",
+                if (suggestions.isEmpty()) tr("Rien à nettoyer pour l'instant.", "Nothing to clean up right now.")
+                else tr("Touche un lot : ses images seront sélectionnées, tu vérifies puis tu mets à la corbeille.", "Tap a batch: its images get selected, you check them, then move them to the trash."),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )

@@ -1,5 +1,8 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+import com.trieur.screenshots.data.appLabel
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -66,7 +69,7 @@ fun FilterBar(
                     selected = true,
                     onClick = onClearCleanup,
                     label = { Text(cleanupLabel) },
-                    trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Retirer ce lot") },
+                    trailingIcon = { Icon(Icons.Filled.Close, contentDescription = tr("Retirer ce lot", "Remove this batch")) },
                 )
             }
         }
@@ -74,9 +77,9 @@ fun FilterBar(
         if (showSources) {
             item(key = "sources") {
                 MenuChip(
-                    label = selectedSource?.label ?: "Tout",
+                    label = selectedSource?.label ?: tr("Tout", "All"),
                     selected = selectedSource != null,
-                    allLabel = "Toutes les sources",
+                    allLabel = tr("Toutes les sources", "All sources"),
                     entries = sources.map { (s, n) -> s to "${s.label} · $n" },
                     onSelected = onSourceSelected,
                 )
@@ -85,10 +88,10 @@ fun FilterBar(
         if (apps.isNotEmpty()) {
             item(key = "apps") {
                 MenuChip(
-                    label = selectedApp ?: "Appli",
+                    label = selectedApp?.let(::appLabel) ?: tr("Appli", "App"),
                     selected = selectedApp != null,
-                    allLabel = "Toutes les applis",
-                    entries = apps.map { it.sourceApp to "${it.sourceApp} · ${it.count}" },
+                    allLabel = tr("Toutes les applis", "All apps"),
+                    entries = apps.map { it.sourceApp to "${appLabel(it.sourceApp)} · ${it.count}" },
                     onSelected = onAppSelected,
                 )
             }

@@ -8,7 +8,7 @@ package com.trieur.screenshots.data
  * au prochain démarrage.
  */
 object Classifier {
-    const val VERSION = 5
+    const val VERSION = 6
 
     /** Au-delà, une photo ou une image téléchargée est surtout du texte : un document. */
     private const val DOCUMENT_MIN_LETTERS = 200
@@ -94,23 +94,32 @@ object Classifier {
         "total", "sous-total", "commande", "facture", "recu", "paiement", "payer", "paye", "panier",
         "livraison", "ttc", "tva", "achat", "remboursement", "montant", "order", "checkout", "subtotal",
         "receipt", "acheter", "ajouter au panier", "frais de port",
+        // anglais
+        "invoice", "payment", "paid", "shipping", "tax", "amount", "cart", "purchase", "refund",
+        "order number", "add to cart", "total due", "billing",
     )
-    private val MONEY = Regex("""\d+(?:[.,]\d{2})?\s?(?:€|eur\b)|€\s?\d+""")
+    private val MONEY = Regex("""\d+(?:[.,]\d{2})?\s?(?:€|eur\b|usd\b|gbp\b)|[€${'$'}£]\s?\d+""")
 
     private val TRAVEL_WORDS = words(
         "billet", "embarquement", "boarding", "vol", "gate", "porte", "terminal", "siege", "seat",
         "voiture", "train", "sncf", "ouigo", "tgv", "depart", "arrivee", "aeroport", "airport", "flight",
         "check-in", "hotel", "airbnb", "booking", "quai", "passager", "passenger", "bagage",
+        // anglais
+        "ticket", "departure", "arrival", "platform", "luggage", "baggage", "reservation", "itinerary",
+        "boarding pass", "carriage", "coach",
     )
 
     private val CODE_CONTEXT = Regex(
         """code (?:de )?(?:verification|confirmation|securite|connexion|d'acces)|votre code|ton code|""" +
-            """your code|verification code|security code|one-time|otp|2fa|code est|code is|code :"""
+            """your code|verification code|security code|confirmation code|login code|sign-in code|passcode|""" +
+            """one-time|otp|2fa|code est|code is|code :"""
     )
     private val CODE_DIGITS = Regex("""(?<!\d)\d{3}[ -]?\d{3}(?!\d)|(?<!\d)\d{4,8}(?!\d)""")
 
     private val STREET = Regex(
-        """(?<!\d)\d{1,4}(?:\s?(?:bis|ter))?,?\s+(?:rue|avenue|av\.|boulevard|bd|place|chemin|allee|impasse|route|quai|cours)\s"""
+        """(?<!\d)\d{1,4}(?:\s?(?:bis|ter))?,?\s+(?:rue|avenue|av\.|boulevard|bd|place|chemin|allee|impasse|route|quai|cours)\s|""" +
+            // anglais : « 221 Baker Street », « 10 Main St »
+            """(?<!\d)\d{1,5}\s+(?:[a-z]+\s){1,3}(?:street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|lane|ln\.?)(?![a-z])"""
     )
 
     /** Fragment de dossier (en minuscules) → nom d'appli affiché. Le premier qui correspond gagne. */

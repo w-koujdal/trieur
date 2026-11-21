@@ -1,5 +1,7 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -27,7 +29,7 @@ private val Screenshot.mime: String
 fun displayPath(shot: Screenshot): String {
     val parts = shot.path?.split('/')?.filter { it.isNotBlank() }
         ?: (shot.folder.orEmpty().split('/').filter { it.isNotBlank() && !it.startsWith("content:") } + shot.displayName)
-    return (listOf("Téléphone") + parts).joinToString(" › ")
+    return (listOf(tr("Téléphone", "Phone")) + parts).joinToString(" › ")
 }
 
 /** Ce que la grille affiche : la vignette mise en cache pour un PDF, l'image elle-même sinon. */
@@ -45,7 +47,7 @@ fun shareableUri(context: Context, uri: String): Uri {
 }
 
 fun openItem(context: Context, shot: Screenshot) {
-    start(context, Intent(Intent.ACTION_VIEW).setDataAndType(shareableUri(context, shot.uri), shot.mime), "ouvrir ce fichier")
+    start(context, Intent(Intent.ACTION_VIEW).setDataAndType(shareableUri(context, shot.uri), shot.mime), tr("ouvrir ce fichier", "open this file"))
 }
 
 fun shareItems(context: Context, shots: List<Screenshot>) {
@@ -58,7 +60,7 @@ fun shareItems(context: Context, shots: List<Screenshot>) {
         Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, list)
     }.setType(type)
     // Le sélecteur transmet les images aux applis choisies avec le droit de lecture.
-    start(context, Intent.createChooser(intent, null), "partager")
+    start(context, Intent.createChooser(intent, null), tr("partager", "share"))
 }
 
 /**
@@ -77,14 +79,14 @@ val canDelete: Boolean get() = Build.VERSION.SDK_INT >= 30
 
 fun openDetected(context: Context, item: Detected) {
     when (item) {
-        is Detected.Link -> start(context, Intent(Intent.ACTION_VIEW, Uri.parse(item.url)), "ouvrir ce lien")
-        is Detected.Email -> start(context, Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${item.label}")), "écrire un e-mail")
-        is Detected.Phone -> start(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:${item.dial}")), "appeler")
+        is Detected.Link -> start(context, Intent(Intent.ACTION_VIEW, Uri.parse(item.url)), tr("ouvrir ce lien", "open this link"))
+        is Detected.Email -> start(context, Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${item.label}")), tr("écrire un e-mail", "write an email"))
+        is Detected.Phone -> start(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:${item.dial}")), tr("appeler", "call"))
         is Detected.Code -> {
             val clipboard = context.getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("Code", item.label.filter(Char::isDigit)))
             // Android 13+ affiche déjà sa propre confirmation.
-            if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Code copié", Toast.LENGTH_SHORT).show()
+            if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, tr("Code copié", "Code copied"), Toast.LENGTH_SHORT).show()
         }
     }
 }
@@ -93,6 +95,6 @@ private fun start(context: Context, intent: Intent, what: String) {
     try {
         context.startActivity(intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "Aucune appli pour $what", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, tr("Aucune appli pour $what", "No app to $what"), Toast.LENGTH_SHORT).show()
     }
 }

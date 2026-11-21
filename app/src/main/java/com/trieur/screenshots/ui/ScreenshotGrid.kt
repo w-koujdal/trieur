@@ -1,5 +1,7 @@
 package com.trieur.screenshots.ui
 
+import com.trieur.screenshots.tr
+
 import android.net.Uri
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -107,8 +109,8 @@ private fun Thumbnail(
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
-                onClickLabel = if (selecting) "Sélectionner" else "Voir les détails",
-                onLongClickLabel = "Sélectionner",
+                onClickLabel = if (selecting) tr("Sélectionner", "Select") else tr("Voir les détails", "View details"),
+                onLongClickLabel = tr("Sélectionner", "Select"),
             ),
     ) {
         if (shot.source == Source.DOC.name) {
